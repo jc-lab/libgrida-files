@@ -40,7 +40,7 @@ namespace grida {
 			Binder(F f, Tuple&& tuple) : f_(f), tuple_(std::move(tuple)) {
 			}
 
-			template<typename F, typename Tuple, size_t ...S >
+			template<size_t ...S >
 			void run_impl(F&& fn, Tuple&& t, std::index_sequence<S...>)
 			{
 				return std::forward<F>(fn)(std::get<S>(std::forward<Tuple>(t))...);
