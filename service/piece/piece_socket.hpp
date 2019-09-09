@@ -63,6 +63,8 @@ namespace grida {
 				std::shared_ptr<FileHandle> file_handle_;
 				std::unique_ptr<LimitedMemoryPool::PooledPack> pooled_buffer_;
 
+				std::chrono::time_point<std::chrono::steady_clock> upload_begin_time_;
+
 				int sendHandshakePayload(const tsp::Payload* payload);
 
 				void onRecvPacket(std::unique_ptr<char[]> data, size_t size);

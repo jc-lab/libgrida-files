@@ -30,27 +30,28 @@ namespace grida {
 
 			PieceSocket::~PieceSocket()
 			{
-				std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
-				if (handle) {
-					handle->close();
-				}
+				printf("PieceSocket Destroy: %p // %p\n", this);
 			}
 
 			void PieceSocket::onRecvPacket(std::unique_ptr<char[]> data, size_t packet_len) {
 				std::unique_ptr<const char[]> temp(const_cast<char const*>(data.release()));
+				processRecvPacket(temp, packet_len);
+				/*
 				task_count_++;
 				thread_pool_->send([this](std::unique_ptr<const char[]> packet_data, size_t packet_len) {
 					std::unique_ptr<const char[]> copied_packet_data(std::move(packet_data));
 					processRecvPacket(copied_packet_data, packet_len);
 					task_count_--;
 				}, std::move(temp), packet_len);
+				*/
 			}
 
 			void PieceSocket::closeWithQueue() {
 				if (task_count_ > 0) {
 					std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
-					thread_pool_->send([this](std::shared_ptr<uvw::TCPHandle> handle) {
-						closeWithQueue();
+					thread_pool_->send([](std::shared_ptr<uvw::TCPHandle> handle) {
+						std::shared_ptr<PieceSocket> self = std::static_pointer_cast<PieceSocket>(handle->data());
+						self->closeWithQueue();
 					}, handle);
 				} else {
 					if (piece_download_ctx_) {
@@ -59,7 +60,6 @@ namespace grida {
 					}
 					piece_service_->doneRequest(this);
 				}
-				
 			}
 
 			bool PieceSocket::acceptFrom(std::shared_ptr<PieceSocket> self, std::shared_ptr<uvw::TCPHandle> shared_handle)
@@ -70,20 +70,20 @@ namespace grida {
 				shared_handle->on<uvw::DataEvent>([this](uvw::DataEvent& evt, uvw::TCPHandle& handle) {
 					onRecvPacket(std::move(evt.data), evt.length);
 				});
-				shared_handle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent&, uvw::TCPHandle& handle) {
+				shared_handle->on<uvw::ErrorEvent>([](const uvw::ErrorEvent&, uvw::TCPHandle& handle) {
 					handle.close();
 				});
 				shared_handle->on<uvw::EndEvent>([](const uvw::EndEvent&, uvw::TCPHandle& handle) {
 					handle.close();
 				});
-				shared_handle->once<uvw::CloseEvent>([this, shared_handle](const uvw::CloseEvent&, uvw::TCPHandle& handle) {
-					// Capture shared_handle for keep reference
+				shared_handle->once<uvw::CloseEvent>([](const uvw::CloseEvent&, uvw::TCPHandle& handle) {
 					{
 						auto peer = handle.peer();
 						printf("PieceSocket closeFrom : %s:%d\n", peer.ip.c_str(), peer.port);
 					}
 
-					closeWithQueue();
+					std::shared_ptr<PieceSocket> self = std::static_pointer_cast<PieceSocket>(handle.data());
+					self->closeWithQueue();
 				});
 
 				{
@@ -126,20 +126,20 @@ namespace grida {
 				shared_handle->on<uvw::DataEvent>([this](uvw::DataEvent& evt, uvw::TCPHandle& handle) {
 					onRecvPacket(std::move(evt.data), evt.length);
 				});
-				shared_handle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent&, uvw::TCPHandle& handle) {
+				shared_handle->on<uvw::ErrorEvent>([](const uvw::ErrorEvent&, uvw::TCPHandle& handle) {
 					handle.close();
 				});
 				shared_handle->on<uvw::EndEvent>([](const uvw::EndEvent&, uvw::TCPHandle& handle) {
 					handle.close();
 				});
-				shared_handle->on<uvw::CloseEvent>([this](const uvw::CloseEvent&, uvw::TCPHandle& handle) {
+				shared_handle->on<uvw::CloseEvent>([](const uvw::CloseEvent&, uvw::TCPHandle& handle) {
 					{
 						auto peer = handle.peer();
 						printf("PieceSocket closeFrom : %s:%d\n", peer.ip.c_str(), peer.port);
 					}
 
-					closeWithQueue();
-					handle_.reset();
+					std::shared_ptr<PieceSocket> self = std::static_pointer_cast<PieceSocket>(handle.data());
+					self->closeWithQueue();
 				});
 				shared_handle->connect(remote_ip, port);
 			}
@@ -150,9 +150,31 @@ namespace grida {
 				LimitedMemoryPool::PooledPack *pack = (LimitedMemoryPool::PooledPack *)pooled_buffer_.get();
 				int64_t read_bytes = file_handle_->read(pack->raw(), pack->size());
 				if (read_bytes > 0) {
-					handle->once<uvw::WriteEvent>([this](uvw::WriteEvent& evt, uvw::TCPHandle& handle) {
-						uploadPiece();
-						});
+					handle->once<uvw::WriteEvent>([this, handle, read_bytes](uvw::WriteEvent& evt, uvw::TCPHandle& h) {
+						// handle is keep reference
+
+						auto time_taken = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - upload_begin_time_);
+						int64_t limit_bitrate = piece_service_->getSpeedLimitBitrate();
+						int64_t diff_time = 0;
+						if (limit_bitrate > 0) {
+							int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
+							int64_t diff_time = time_to_take - time_taken.count();
+
+							float speed = (float)read_bytes * 8 / (float)time_taken.count();
+							printf("UPLOAD SPEED : %f Mbits/s   :::: difftime = %lld - %lld = %lld\n", speed, time_to_take, time_taken.count(), diff_time);
+						}
+						if (limit_bitrate > 0 && diff_time > 0) {
+							auto next_timer = h.loop().resource<uvw::TimerHandle>();
+							next_timer->once<uvw::TimerEvent>([this, handle](uvw::TimerEvent& evt, uvw::TimerHandle& h) {
+								// handle is keep reference
+								uploadPiece();
+								});
+							next_timer->start(uvw::TimerHandle::Time{ diff_time / 1000 }, uvw::TimerHandle::Time{ 0 });
+						} else { 
+							uploadPiece();
+						}
+					});
+					upload_begin_time_ = std::chrono::steady_clock::now();
 					handle->write((char*)pack->raw(), pack->size());
 				} else {
 					handle->close();
@@ -167,7 +189,7 @@ namespace grida {
 				{
 					const PieceRequestPayload* real_payload = dynamic_cast<const PieceRequestPayload*>(piece_payload);
 					PieceStartDataPayload start_payload;
-					size_t piece_size = 0;
+					int64_t piece_size = 0;
 					file_handle_ = piece_service_->openPieceFile(real_payload->object_id.get(), real_payload->piece_id.get());
 					if (!file_handle_) {
 						handle->close();
@@ -179,8 +201,10 @@ namespace grida {
 					conn_state_ = CONN_DATA;
 
 					std::shared_ptr<uvw::AsyncHandle> task = handle->loop().resource<uvw::AsyncHandle>();
-					task->on<uvw::AsyncEvent>([this](const uvw::AsyncEvent& evt, uvw::AsyncHandle& handle) {
+					task->once<uvw::AsyncEvent>([this, handle](const uvw::AsyncEvent& evt, uvw::AsyncHandle& h) {
+						// handle is keep reference
 						uploadPiece();
+						h.close();
 					});
 					task->send();
 				}else if (piece_payload->payload_type() == PieceStartDataPayload::PAYLOAD_TYPE)

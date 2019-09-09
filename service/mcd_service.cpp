@@ -23,9 +23,9 @@ namespace grida {
 
 		}
 
-		int McdService::start(ThreadPool* thread_pool, McdPeerHandler* peer_handler, const std::string& multicast_addr, const std::string& interface_addr)
+		int McdService::start(ThreadPool* thread_pool, const std::string& multicast_addr, const std::string& interface_addr)
 		{
-			return impl_->start(thread_pool, peer_handler, multicast_addr, interface_addr);
+			return impl_->start(thread_pool, multicast_addr, interface_addr);
 		}
 
 		int McdService::stop()

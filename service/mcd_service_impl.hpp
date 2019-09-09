@@ -48,7 +48,6 @@ namespace grida {
             PeerContext* peer_context_;
             const internal::LoopProvider* loop_provider_;
 
-            McdPeerHandler* peer_handler_;
             std::unique_ptr<tsp::PskeProtocol> protocol_pske_;
 
 			struct DiscoveryContextItem {
@@ -103,7 +102,7 @@ namespace grida {
         public:
             Impl(PeerContext *peer_context, const internal::LoopProvider* loop_provider);
             ~Impl();
-            int start(ThreadPool* thread_pool, McdPeerHandler* peer_handler, const std::string& multicast_ip, const std::string& interface_ip);
+            int start(ThreadPool* thread_pool, const std::string& multicast_ip, const std::string& interface_ip);
             int stop();
             int onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload);
 			int sendMcdPayload(mcd::McdPayload* payload, tsp::PskeFlags pske_flags, const std::vector<std::unique_ptr<grida::tsp::Payload>>* ancestors = NULL);

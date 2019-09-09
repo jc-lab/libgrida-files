@@ -31,7 +31,7 @@ namespace grida {
 		private:
 			PeerService* peer_service_;
 
-			LimitedMemoryPool piece_buf_pool_;
+			LimitedMemoryPool* memory_pool_;
 
 			std::shared_ptr<uvw::TCPHandle> local_tcp_listener_;
 
@@ -44,6 +44,7 @@ namespace grida {
 			PieceService(PeerService* peer_service);
 			~PieceService();
 			
+			void init(LimitedMemoryPool* memory_pool);
 			void listen(int port);
 
 			piece::PieceSocket* requestPieceToPeer(std::shared_ptr<PeerPieceDownloadContext> piece_download_ctx);
@@ -52,8 +53,10 @@ namespace grida {
 			std::unique_ptr<FileHandle> openPieceFile(const std::string& object_id, const std::string& piece_id);
 
 			LimitedMemoryPool* piece_buf_pool() {
-				return &piece_buf_pool_;
+				return memory_pool_;
 			}
+
+			int64_t getSpeedLimitBitrate();
 		};
 
 	} // namespace service

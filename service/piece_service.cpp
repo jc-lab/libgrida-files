@@ -16,7 +16,7 @@ namespace grida {
 	namespace service {
 
 		PieceService::PieceService(PeerService* peer_service)
-			: peer_service_(peer_service), piece_buf_pool_(64 * 1048576)
+			: peer_service_(peer_service)
 		{
 		}
 
@@ -28,6 +28,10 @@ namespace grida {
 				local_tcp_listener_->close();
 				local_tcp_listener_.reset();
 			}
+		}
+
+		void PieceService::init(LimitedMemoryPool* memory_pool) {
+			memory_pool_ = memory_pool;
 		}
 
 		void PieceService::listen(int port)
@@ -78,6 +82,10 @@ namespace grida {
 		std::unique_ptr<FileHandle> PieceService::openPieceFile(const std::string& object_id, const std::string& piece_id)
 		{
 			return peer_service_->openPieceFile(object_id, piece_id);
+		}
+
+		int64_t PieceService::getSpeedLimitBitrate() {
+			return peer_service_->getSpeedLimitBitratePeer();
 		}
 
 	} // namespace service

@@ -11,6 +11,9 @@
 
 #include <string>
 
+#include "tsp/tsp_recv_context.hpp"
+#include "tsp/pske_protocol.hpp"
+
 #include "seed_file.hpp"
 
 #include "file_handle.hpp"
@@ -23,6 +26,10 @@ namespace grida {
 
 	class PeerContext {
 	public:
+		/* MultiCast Discovery Communication Layer */
+		virtual std::unique_ptr<tsp::TspRecvContext> createMcdTspRecvContext(const std::string& remote_ip, int remote_port) = 0;
+		virtual std::unique_ptr<tsp::PskeProtocol> createMcdPskeProtocol() = 0;
+
 		/* Database Layer */
 		/* Return code : Success(0), NotExists(2), Failed(otherwise) */
 		virtual int dbSetObjectInformation(/* in/out */ std::unique_ptr<DBObjectInformation> &row, const SeedFile& seed_file, void *user_object_ctx) = 0;

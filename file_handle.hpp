@@ -12,6 +12,14 @@
 
 #include <stdint.h>
 
+#if defined(_MSC_VER) && (defined(WIN32) || defined(_WIN32) || defined(_WIN64))
+#include <windows.h>
+#endif
+
+#if !defined(_TCHAR_DEFINED)
+#define LPCTSTR const char*
+#endif
+
 namespace grida {
 
     class FileHandle {
@@ -20,6 +28,31 @@ namespace grida {
 		FileHandle(FileHandle&&) = delete;
 
     public:
+		class UniqueReadLock {
+		private:
+			FileHandle& file_handle_;
+			bool locked_;
+			int lock_rc_;
+
+		public:
+			UniqueReadLock(FileHandle& file_handle) : file_handle_(file_handle), locked_(false) {
+				lock_rc_ = file_handle_.readLock();
+				if (lock_rc_ == 0) {
+					locked_ = true;
+				}
+			}
+
+			~UniqueReadLock() {
+				if (locked_) {
+					file_handle_.readUnlock();
+					locked_ = false;
+				}
+			}
+
+			int lock_rc() const {
+				return lock_rc_;
+			}
+		};
 		class UniqueWriteLock {
 		private:
 			FileHandle& file_handle_;
@@ -61,27 +94,39 @@ namespace grida {
 		FileHandle() = default;
 		virtual ~FileHandle() = default;
 
-        /**
-         * Lock write operation
-         * @return
-         */
-        virtual int writeLock() = 0;
+		/**
+		 * Lock read operation
+		 * @return
+		 */
+		virtual int readLock() = 0;
 
-        /**
-         * Lock write operation
-         * @return
-         */
-        virtual int writeUnlock() = 0;
+		/**
+		 * Unlock read operation
+		 * @return
+		 */
+		virtual int readUnlock() = 0;
+
+		/**
+		 * Lock write operation
+		 * @return
+		 */
+		virtual int writeLock() = 0;
+
+		/**
+		 * Unlock write operation
+		 * @return
+		 */
+		virtual int writeUnlock() = 0;
 
 		/**
 		 * 
 		 */
-		virtual int setFileSize(size_t size) = 0;
+		virtual int setFileSize(int64_t size) = 0;
 
 		/**
 		 *
 		 */
-		virtual int getFileSize(size_t* psize) = 0;
+		virtual int getFileSize(int64_t* psize) = 0;
 
         /**
          *

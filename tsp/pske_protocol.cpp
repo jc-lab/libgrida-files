@@ -287,6 +287,11 @@ namespace grida {
 			return real_payload->sub_payload_len;
 		}
 
+		int PskeProtocol::setPassword(const unsigned char* password, int length) {
+			password_.clear();
+			password_.insert(password_.end(), password, password + length);
+			return 0;
+		}
 		int PskeProtocol::setSessionKey(jcp::AsymKey* key, const unsigned char* pubkey_x509_data, int pubkey_x509_size)
 		{
 			session_key_priv_ = key;

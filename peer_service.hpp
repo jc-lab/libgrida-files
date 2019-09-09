@@ -13,6 +13,10 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "limited_memory_pool.hpp"
+
+#include "shared_file_handle.hpp"
+
 #include "internal/use_loop.hpp"
 #include "peer_context.hpp"
 
@@ -26,7 +30,6 @@ namespace grida {
 		class RdvClient;
 		class RouteTracer;
 		class McdService;
-		class McdPeerHandler;
 		class PieceService;
 	} // service
 
@@ -52,16 +55,18 @@ namespace grida {
 	public:
 		struct Config {
 			PeerContext* peer_context;
-			service::McdPeerHandler* peer_handler;
+			LimitedMemoryPool* memory_pool;
 			std::string multicast_addr;
 			std::string interface_addr;
+			int64_t bitrate_limit_peer;
 
 			bool use_rdv;
 
 			Config() {
 				peer_context = NULL;
-				peer_handler = NULL;
 				use_rdv = true;
+				memory_pool = NULL;
+				bitrate_limit_peer = 0;
 			}
 		};
 
@@ -90,6 +95,11 @@ namespace grida {
 		std::unique_ptr<service::PieceService> piece_service_;
 
 		PieceDownloadHandler piece_download_handler_;
+
+		struct {
+			std::mutex mutex;
+			std::map< std::string, std::weak_ptr<SharedFileHandle::RootHandle>> map;
+		} object_file_handles_;
 
 		struct {
 			std::mutex mutex;
@@ -140,6 +150,8 @@ namespace grida {
 		void doneDownload(DownloadContext* download_context, bool success);
 
 		std::unique_ptr<FileHandle> openPieceFile(const std::string& object_id, const std::string& piece_id);
+
+		int64_t getSpeedLimitBitratePeer();
 	};
 
 } // namespace grida

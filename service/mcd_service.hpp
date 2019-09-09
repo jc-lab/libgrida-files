@@ -34,7 +34,7 @@ namespace grida {
 			McdService(const internal::LoopProvider* provider, PeerContext *peer_context);
 			~McdService();
 
-			int start(ThreadPool* thread_pool, McdPeerHandler* peer_handler, const std::string& multicast_addr, const std::string& interface_addr);
+			int start(ThreadPool* thread_pool, const std::string& multicast_addr, const std::string& interface_addr);
 			int stop();
 
 			int startDiscoveryObject(std::shared_ptr<ObjectDiscoveryContext> discovery_context);

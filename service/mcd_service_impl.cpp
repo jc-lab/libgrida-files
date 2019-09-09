@@ -39,17 +39,13 @@ namespace grida {
 
         }
 
-        int McdService::Impl::start(ThreadPool *thread_pool, McdPeerHandler* peer_handler, const std::string& multicast_ip, const std::string& interface_ip) {
+        int McdService::Impl::start(ThreadPool *thread_pool, const std::string& multicast_ip, const std::string& interface_ip) {
 			std::shared_ptr<uvw::Loop> loop(loop_provider_->get_loop());
 
-			peer_handler_ = peer_handler;
-
-			peer_handler->attachServiceImpl(this);
-
-            protocol_pske_ = peer_handler_->createPskeProtocol();
+            protocol_pske_ = peer_context_->createMcdPskeProtocol();
             transport_.addProtocol(protocol_pske_.get());
             transport_.setRecvContextFactory([this](const std::string& remote_ip, int remote_port) {
-                return peer_handler_->createTspRecvContext(remote_ip, remote_port);
+				return peer_context_->createMcdTspRecvContext(remote_ip, remote_port);
             });
 
             transport_.open(loop.get(), multicast_ip, interface_ip);
@@ -260,6 +256,7 @@ namespace grida {
 
 			task->on<uvw::AsyncEvent>([runnable](const uvw::AsyncEvent& evt, uvw::AsyncHandle& handle) {
 				runnable->run();
+				handle.close();
 			});
 			task->send();
 			

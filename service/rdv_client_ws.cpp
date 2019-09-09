@@ -11,8 +11,6 @@
 #include <libstomp-cpp/command/subscribe.hpp>
 
 namespace grida {
-	using namespace internal;
-
 	namespace service {
 
 		const struct lws_protocols RdvClientWs::ws_protocols[1] = {

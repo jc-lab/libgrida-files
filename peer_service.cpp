@@ -8,6 +8,8 @@
 
 #include "peer_service.hpp"
 
+#include "shared_file_handle.hpp"
+
 #include "service/rdv_client.hpp"
 #include "service/route_tracer.hpp"
 #include "service/mcd_service.hpp"
@@ -33,13 +35,15 @@ namespace grida {
 
 	class PeerService::PieceFileHandle : public FileHandle {
 	private:
+		int64_t offset_;
 		int64_t piece_size_;
 		int64_t remaining_;
 		std::unique_ptr<FileHandle> real_;
 
 	public:
-		PieceFileHandle(std::unique_ptr<FileHandle> real, int64_t size) {
+		PieceFileHandle(std::unique_ptr<FileHandle> real, int64_t offset, int64_t size) {
 			real_ = std::move(real);
+			offset_ = offset;
 			piece_size_ = size;
 			remaining_ = size;
 		}
@@ -48,16 +52,22 @@ namespace grida {
 			close();
 		}
 
+		int readLock() override {
+			return 0;
+		}
+		int readUnlock() override {
+			return 0;
+		}
 		int writeLock() override {
 			return 0;
 		}
 		int writeUnlock() override {
 			return 0;
 		}
-		int setFileSize(size_t size) override {
+		int setFileSize(int64_t size) override {
 			return 0;
 		}
-		int getFileSize(size_t* psize) override {
+		int getFileSize(int64_t* psize) override {
 			*psize = piece_size_;
 			return 1;
 		}
@@ -70,8 +80,11 @@ namespace grida {
 				int64_t rc;
 				if (avail <= 0)
 					return 0;
+				FileHandle::UniqueReadLock lock(*real_);
+				real_->seek(offset_, FileHandle::SEEK_FILE_BEGIN);
 				rc = real_->read(buf, avail);
 				if (rc > 0) {
+					offset_ += rc;
 					remaining_ -= rc;
 				}
 				return rc;
@@ -106,6 +119,7 @@ namespace grida {
 		route_tracer_.reset(new service::RouteTracer(this));
 		mcd_service_.reset(new service::McdService(this, config.peer_context));
 		
+		piece_service_->init(config.memory_pool);
 		piece_service_->listen(19901);
 		
 		if (config.use_rdv) {
@@ -113,7 +127,7 @@ namespace grida {
 			rdv_client_->start(route_tracer_.get());
 		}
 		
-		mcd_service_->start(thread_pool(), config.peer_handler, config.multicast_addr, config.interface_addr);
+		mcd_service_->start(thread_pool(), config.multicast_addr, config.interface_addr);
 
 		manage_thread_run_.store(true);
 		manage_thread_ = std::thread(std::bind(&PeerService::downloadManageThreadProc, this));
@@ -243,6 +257,16 @@ namespace grida {
 					}
 				}
 			}
+			{
+				std::unique_lock<std::mutex> lock(object_file_handles_.mutex);
+				for (auto iter = object_file_handles_.map.begin(); iter != object_file_handles_.map.end(); ) {
+					if (iter->second.expired()) {
+						iter = object_file_handles_.map.erase(iter);
+					} else {
+						iter++;
+					}
+				}
+			}
 			Sleep(50);
 		}
 	}
@@ -260,14 +284,14 @@ namespace grida {
 		if ((piece_index < 0) || (piece_index >= pieces.size()))
 			return false;
 
-		file_handle->seek((size_t)seed_file.piece_length.get() * (size_t)piece_index, FileHandle::SEEK_FILE_BEGIN);
+		file_handle->seek((int64_t)seed_file.piece_length.get() * (int64_t)piece_index, FileHandle::SEEK_FILE_BEGIN);
 		read_size = file_handle->read(&file_buf[0], file_buf.size());
 
 		message_digest->update(file_buf.data(), read_size);
 		message_digest->digest(digest_buf);
 
 		auto iter = pieces.cbegin();
-		for (; piece_index; piece_index--) {
+		for (int count = piece_index; count; count--) {
 			iter++;
 		}
 
@@ -304,14 +328,16 @@ namespace grida {
 				std::unique_ptr<FileHandle> file_handle;
 				result = config_.peer_context->fileOpen(file_handle, download_context->db_object_info(), FileHandle::MODE_READ, &seed_file_vo, user_object_ctx);
 				if ((result > 0) && file_handle) {
-					size_t file_size = 0;
+					int64_t file_size = 0;
 					if (file_handle->getFileSize(&file_size) && (file_size >= seed_file_vo.file_size.get())) {
 						if (checkPieceFromFile(file_handle.get(), seed_file_vo, 0) && checkPieceFromFile(file_handle.get(), seed_file_vo, seed_file_vo.pieces.get().size() - 1))
 						{
+                            file_handle->close();
 							download_context->setDone(1);
 							return;
 						}
 					}
+                    file_handle->close();
 				}
 			}
 		}
@@ -332,7 +358,7 @@ namespace grida {
 
 		{
 			std::unique_ptr<FileHandle> file_handle;
-			result = config_.peer_context->fileOpen(file_handle, download_context->db_object_info(), FileHandle::MODE_WRITE, &seed_file_vo, user_object_ctx);
+			result = config_.peer_context->fileOpen(file_handle, download_context->db_object_info(), FileHandle::MODE_RW, &seed_file_vo, user_object_ctx);
 			if (result <= 0)
 			{
 				download_context->setDone(result);
@@ -341,6 +367,14 @@ namespace grida {
 			else if (!file_handle.get()) {
 				download_context->setDone(-1);
 				return;
+			}
+
+			{
+				SharedFileHandle* shared_file_handle = dynamic_cast<SharedFileHandle*>(file_handle.get());
+				if (shared_file_handle) {
+					std::unique_lock<std::mutex> lock(object_file_handles_.mutex);
+					object_file_handles_.map[object_id] = shared_file_handle->rootHandle();
+				}
 			}
 
 			result = file_handle->setFileSize(seed_file_vo.file_size.get());
@@ -376,7 +410,7 @@ namespace grida {
 					grida::DBPieceInformation db_piece_row;
 					db_piece_row.object_id = download_context->object_id();
 					db_piece_row.piece_id = iter->second->piece_id_;
-					db_piece_row.file_offset = iter->second->piece_index_ * piece_size;
+					db_piece_row.file_offset = (int64_t)iter->second->piece_index_ * (int64_t)piece_size;
 					db_piece_row.piece_size = piece_size;
 					config_.peer_context->dbSetPieceInformation(db_piece_row, download_context->user_object_ctx_.get());
 				}
@@ -387,7 +421,6 @@ namespace grida {
 	void PeerService::beginPieceDownloadByPeer(std::shared_ptr<PeerPieceDownloadContext> piece_download_context)
 	{
 		service::piece::PieceSocket *piece_socket = piece_service_->requestPieceToPeer(piece_download_context);
-
 	}
 
 	std::unique_ptr<FileHandle> PeerService::openPieceFile(const std::string& object_id, const std::string& piece_id)
@@ -415,18 +448,40 @@ namespace grida {
 			return nullptr;
 		}
 
-		rc = config_.peer_context->fileOpen(file_handle, object_info.get(), FileHandle::MODE_READ, &seed_file, NULL);
-		if (rc != 1) {
-			return nullptr;
-		}
+		do {
+			std::unique_lock<std::mutex> lock(object_file_handles_.mutex);
 
-		file_handle->seek(piece_info->file_offset, FileHandle::SEEK_FILE_BEGIN);
+			{
+				auto iter = object_file_handles_.map.find(object_id);
+				if (iter != object_file_handles_.map.end()) {
+					std::shared_ptr<SharedFileHandle::RootHandle> shared_file_root = iter->second.lock();
+					if (shared_file_root) {
+						file_handle = std::move(shared_file_root->subReadModeOpen());
+					} else {
+						object_file_handles_.map.erase(iter);
+					}
+				}
+			}
 
-		return std::make_unique<PieceFileHandle>(std::move(file_handle), piece_info->piece_size);
+			if (!file_handle) {
+				rc = config_.peer_context->fileOpen(file_handle, object_info.get(), FileHandle::MODE_READ, &seed_file, NULL);
+				if (rc != 1) {
+					return nullptr;
+				}
+
+				SharedFileHandle* shared_file_handle = dynamic_cast<SharedFileHandle*>(file_handle.get());
+				if (shared_file_handle) {
+					object_file_handles_.map[object_id] = shared_file_handle->rootHandle();
+				}
+			}
+		} while (0);
+
+		return std::make_unique<PieceFileHandle>(std::move(file_handle), piece_info->file_offset, piece_info->piece_size);
 	}
 
-
-
+	int64_t PeerService::getSpeedLimitBitratePeer() {
+		return config_.bitrate_limit_peer;
+	}
 
 	void PeerService::PieceDownloadHandler::add(PieceDownloadContext *id, std::shared_ptr<PieceDownloadContext> ctx) {
 		std::unique_lock<std::mutex> lock(service_->piece_downloads_.mutex);

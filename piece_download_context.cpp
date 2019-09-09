@@ -28,7 +28,7 @@ namespace grida {
 		piece_id_ = piece->piece_id();
 		piece_size_ = download_ctx->piece_size();
 		file_handle_ = download_ctx->file_handle();
-		file_offset_ = piece_size_ * piece->piece_index();
+		file_offset_ = (int64_t)piece_size_ * (int64_t)piece->piece_index();
 
 		md_ = jcp::MessageDigest::getInstance(jcp::MessageDigestAlgorithm::SHA_256.algo_id());
 	}

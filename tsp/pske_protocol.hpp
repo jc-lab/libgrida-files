@@ -88,6 +88,7 @@ namespace grida {
 			int parsePayload(std::unique_ptr<Payload>& out_payload, const unsigned char* in_packet, int in_length, void* user_ctx) override;
 			int unwrap(std::unique_ptr<char[]>& out_packet, const Payload* in_payload) override;
 
+			int setPassword(const unsigned char* password, int length);
 			int setSessionKey(jcp::AsymKey *key, const unsigned char * pubkey_x509_data, int pubkey_x509_size);
 
 		protected:
