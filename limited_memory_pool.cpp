@@ -33,6 +33,7 @@ namespace grida {
 		for (auto iter = iter_pool.begin(); iter != iter_pool.end(); iter++) {
 			if (!(*iter)->used_) {
 				(*iter)->used_ = true;
+				usage_size_ += size;
 				return ((char*)iter->get()) + sizeof(PooledBuffer);
 			}
 		}
