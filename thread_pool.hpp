@@ -26,6 +26,7 @@ namespace grida {
 	public:
 		struct QueueItem {
 			virtual void run() = 0;
+			virtual ~QueueItem() {}
 		};
 
 	private:
