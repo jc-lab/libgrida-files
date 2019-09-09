@@ -38,8 +38,8 @@ namespace grida {
 	void ThreadPool::worker() {
 		while (thread_run_) {
 			std::unique_ptr<QueueItem> item;
-			std::unique_lock<std::mutex> lock(queue_.mutex);
 			do {
+				std::unique_lock<std::mutex> lock(queue_.mutex);
 				bool is_empty = queue_.queue.empty();
 				if (is_empty) {
 					if (queue_.cond.wait_for(lock, std::chrono::milliseconds(100)) == std::cv_status::timeout) {
