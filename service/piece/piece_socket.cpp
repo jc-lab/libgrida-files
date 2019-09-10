@@ -158,7 +158,7 @@ namespace grida {
 						int64_t diff_time = 0;
 						if (limit_bitrate > 0) {
 							int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
-							int64_t diff_time = time_to_take - time_taken.count();
+							diff_time = time_to_take - time_taken.count();
 
 							float speed = (float)read_bytes * 8 / (float)time_taken.count();
 							printf("UPLOAD SPEED : %f Mbits/s   :::: difftime = %lld - %lld = %lld\n", speed, time_to_take, time_taken.count(), diff_time);
