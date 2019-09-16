@@ -30,7 +30,6 @@ namespace grida {
 
 			PieceSocket::~PieceSocket()
 			{
-				printf("PieceSocket Destroy: %p // %p\n", this);
 			}
 
 			void PieceSocket::onRecvPacket(std::unique_ptr<char[]> data, size_t packet_len) {
