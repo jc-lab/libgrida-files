@@ -39,6 +39,8 @@ namespace grida {
 
 	class DownloadContext : public ObjectDiscoveryContext {
 	public:
+		static const int PROGRESS_RATIO;
+
 		enum DownloaderType {
 			DOWNLOADER_PEER = 1,
 			DOWNLOADER_CUSTOMER
@@ -55,17 +57,16 @@ namespace grida {
 			volatile Status status_; // 0:Not downloaded, 1:Downloading, 2:Downloaded
 			int restarted_count_;
 			int dup_count_; // 0:Not inited
-			float progress_;
+			std::atomic_int progress_; // 0.0~1.0 * 1000
 
 			unsigned char digest_buf_[64];
 			int digest_len_;
 
 			std::string downloader_peer_id_;
 
-			PieceState(const std::string& piece_id, int piece_index) : status_(STATUS_NOT_DOWNLOADED), piece_id_(piece_id), piece_index_(piece_index) {
+			PieceState(const std::string& piece_id, int piece_index) : status_(STATUS_NOT_DOWNLOADED), piece_id_(piece_id), piece_index_(piece_index), progress_(0) {
 				restarted_count_ = 0;
 				dup_count_ = 0;
-				progress_ = 0;
 				digest_len_ = 0;
 			}
 
@@ -155,6 +156,8 @@ namespace grida {
 		// "Single Custom Download" Using Flag
 		std::atomic_int scd_useing_;
 
+		std::atomic_int progress_; // 0.0~1.0 * 1000
+
 		// piece ordering
 		struct WaitingTable {
 			std::mutex mutex;
@@ -231,6 +234,10 @@ namespace grida {
 
 		std::atomic_int& scd_useing() {
 			return scd_useing_;
+		}
+
+		float getProgress() const {
+			return (float)progress_.load() / (float)PROGRESS_RATIO;
 		}
 
 		protected:

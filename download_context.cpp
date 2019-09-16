@@ -16,7 +16,9 @@
 
 namespace grida {
 
-	DownloadContext::DownloadContext(std::shared_ptr<void> user_object_ctx) : user_object_ctx_(user_object_ctx), done_flag_(false), result_(0), scd_useing_(0), peer_service_(NULL) {
+	const int DownloadContext::PROGRESS_RATIO = 1000;
+
+	DownloadContext::DownloadContext(std::shared_ptr<void> user_object_ctx) : user_object_ctx_(user_object_ctx), done_flag_(false), result_(0), scd_useing_(0), peer_service_(NULL), progress_(0) {
 		random_ = jcp::SecureRandom::getInstance();
 	}
 	DownloadContext::~DownloadContext() {
@@ -50,7 +52,7 @@ namespace grida {
 
 	void DownloadContext::pieceDownloadUpdate(PieceDownloadContext* piece_download_ctx) {
 		PieceState &piece_state = pieces_.get(piece_download_ctx->piece_id());
-		piece_state.progress_ = piece_download_ctx->progress();
+		piece_state.progress_.store((int)(piece_download_ctx->progress() * 1000));
 	}
 	void DownloadContext::pieceDownloadCancel(PieceDownloadContext* piece_download_ctx)
 	{
@@ -85,19 +87,33 @@ namespace grida {
 	}
 
 	bool DownloadContext::checkState() {
-		std::unique_lock<std::recursive_mutex> lock(pieces_.mutex);
 		int completed_count = 0;
+		int all_count = 0;
+		float running_progress_sum = 0;
 
-		for (auto iter = pieces_.map.begin(); iter != pieces_.map.end(); iter++) {
-			if (iter->second->status_ == PieceState::STATUS_DOWNLOADED) {
-				completed_count++;
+		{
+			std::unique_lock<std::recursive_mutex> lock(pieces_.mutex);
+			all_count = pieces_.map.size();
+			for (auto iter = pieces_.map.begin(); iter != pieces_.map.end(); iter++) {
+				switch (iter->second->status_) {
+				case PieceState::STATUS_DOWNLOADING:
+					running_progress_sum += iter->second->progress_;
+					break;
+				case PieceState::STATUS_DOWNLOADED:
+					completed_count++;
+					break;
+				}
+			}
+
+			if (completed_count == pieces_.map.size()) {
+				progress_.store(PROGRESS_RATIO);
+				setDone(1);
+				return true;
 			}
 		}
 
-		if (completed_count == pieces_.map.size()) {
-			setDone(1);
-			return true;
-		}
+		running_progress_sum += completed_count;
+		progress_.store((int)(running_progress_sum * PROGRESS_RATIO / all_count));
 
 		return false;
 	}
