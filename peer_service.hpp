@@ -124,6 +124,10 @@ namespace grida {
 		std::shared_ptr<service::RouteTracer> route_tracer_;
 		std::shared_ptr<service::McdService> mcd_service_;
 
+		const Config* config() const {
+			return &config_;
+		}
+
 	public:
 		PeerService(const std::shared_ptr<::uvw::Loop>& loop);
 		~PeerService();

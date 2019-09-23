@@ -79,6 +79,15 @@ namespace grida {
 		} else {
 			piece_state.progress_ = 1.0f;
 			piece_state.status_ = PieceState::STATUS_DOWNLOADED;
+			{
+				int piece_size = seed_file_.piece_length.get();
+				grida::DBPieceInformation db_piece_row;
+				db_piece_row.object_id = object_id();
+				db_piece_row.piece_id = piece_download_ctx->piece_id();
+				db_piece_row.file_offset = (int64_t)piece_state.piece_index() * (int64_t)piece_size;
+				db_piece_row.piece_size = piece_size;
+				peer_service_->config()->peer_context->dbSetPieceInformation(db_piece_row, user_object_ctx_.get());
+			}
 		}
 
 		if (piece_download_ctx->downloader_type() == DOWNLOADER_CUSTOMER) {

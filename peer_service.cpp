@@ -404,17 +404,6 @@ namespace grida {
 			int db_res;
 			download_context->db_obj_info_->status = 1;
 			db_res = config_.peer_context->dbSetObjectInformation(download_context->db_obj_info_, *download_context->seed_file(), download_context->user_object_ctx_.get());
-			if (db_res == 0) {
-				int piece_size = download_context->seed_file_.piece_length.get();
-				for (auto iter = download_context->pieces_.map.begin(); iter != download_context->pieces_.map.end(); iter++) {
-					grida::DBPieceInformation db_piece_row;
-					db_piece_row.object_id = download_context->object_id();
-					db_piece_row.piece_id = iter->second->piece_id_;
-					db_piece_row.file_offset = (int64_t)iter->second->piece_index_ * (int64_t)piece_size;
-					db_piece_row.piece_size = piece_size;
-					config_.peer_context->dbSetPieceInformation(db_piece_row, download_context->user_object_ctx_.get());
-				}
-			}
 		}
 	}
 
