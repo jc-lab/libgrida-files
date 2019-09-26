@@ -128,15 +128,15 @@ namespace grida {
 	}
 
 	void DownloadContext::setDone(int result) {
+		if (peer_service_)
+			peer_service_->doneDownload(this, result > 0);
+
 		{
 			std::lock_guard<std::mutex> lock(done_mutex_);
 			result_ = result;
 			done_flag_ = true;
 		}
 		done_cond_.notify_all();
-
-		if(peer_service_)
-			peer_service_->doneDownload(this, result > 0);
 	}
 
 	bool DownloadContext::isDone(int timeout_ms) {
