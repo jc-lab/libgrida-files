@@ -173,7 +173,7 @@ namespace grida {
 				int old = *position;
 				int pos = *position = (*position) % buf.size();
 				if (old == pos)
-					* position++;
+					(*position)++;
 				return pos;
 			}
 		} waiting_table_;
