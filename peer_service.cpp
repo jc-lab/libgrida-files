@@ -194,7 +194,7 @@ namespace grida {
 						int64_t now_ticks_nano = now_ticks.time_since_epoch().count();
 
 						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); ) {
-							int64_t time_diff = (peer_iter->second->last_valid_time.load() - now_ticks_nano) / 1000000000LL;
+							int64_t time_diff = (now_ticks_nano - peer_iter->second->last_valid_time.load()) / 1000000000LL;
 							if (
 								peer_iter->second->valided && 
 								(peer_iter->second->get_use_count() == 0) &&
