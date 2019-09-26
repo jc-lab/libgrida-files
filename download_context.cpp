@@ -174,18 +174,8 @@ namespace grida {
 		}
 
 		waiting_table_.buf = temp_table;
-		waiting_table_.rear = temp_table.size() - 1;
-		waiting_table_.front = -1;
-
-		// rear = (rear + 1) % SIZE
-		// buf[rear] = NEW
-
-		// So, (rear + 1) == front : FULL
-
-		// front = (front + 1) % SIZE
-		// BUF[front] -> POP
-
-		// So, rear == front : Empty
+		waiting_table_.rear = temp_table.size();
+		waiting_table_.front = 0;
 
 		return temp_table.size();
 	}
@@ -196,6 +186,7 @@ namespace grida {
 		int loop_count = 2;
 
 		do {
+			// If queue is empty
 			if (waiting_table_.front == waiting_table_.rear)
 			{
 				int count = generateWaitingTable();
@@ -204,8 +195,7 @@ namespace grida {
 				loop_count--;
 			}
 
-			waiting_table_.front = (waiting_table_.front + 1) % waiting_table_.buf.size();
-			DownloadContext::PieceState* item = waiting_table_.buf[waiting_table_.front];
+			DownloadContext::PieceState* item = waiting_table_.buf[waiting_table_.getCurIndex(&waiting_table_.front)];
 			if (item->status_ == DownloadContext::PieceState::STATUS_NOT_DOWNLOADED) {
 				return item;
 			}
@@ -216,8 +206,7 @@ namespace grida {
 
 	void DownloadContext::cancelPiece(PieceState* item) {
 		std::unique_lock<std::mutex> lock(waiting_table_.mutex);
-		waiting_table_.rear = (waiting_table_.rear + 1) % waiting_table_.buf.size();
-		waiting_table_.buf[waiting_table_.rear] = item;
+		waiting_table_.buf[waiting_table_.getCurIndex(&waiting_table_.rear)] = item;
 	}
 
 	void DownloadContext::onObjectDiscovered(tsp::SocketPayload* socket_payload, service::mcd::McdObjectDiscoveryResponsePayload* response_payload)

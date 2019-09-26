@@ -168,6 +168,14 @@ namespace grida {
 
 			WaitingTable() : front(-1), rear(-1) {
 			}
+
+			int getCurIndex(int* position) {
+				int old = *position;
+				int pos = *position = (*position) % buf.size();
+				if (old == pos)
+					* position++;
+				return pos;
+			}
 		} waiting_table_;
 
 		std::unique_ptr<FileHandle> file_handle_;
