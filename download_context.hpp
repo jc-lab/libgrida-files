@@ -87,6 +87,7 @@ namespace grida {
 			std::string remote_ip;
 			data::BitStream pieces_bitmap;
 			bool valided;
+			std::atomic<int64_t> last_valid_time; // nanaseconds
 
 			std::atomic_int count_;
 

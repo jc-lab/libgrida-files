@@ -190,9 +190,16 @@ namespace grida {
 					{
 						std::unique_lock<std::recursive_mutex> pieces_lock(download_context->pieces_.mutex);
 						std::unique_lock<std::recursive_mutex> peers_lock(download_context->peers_info_.mutex);
+						std::chrono::steady_clock::time_point now_ticks = std::chrono::steady_clock::now();
+						int64_t now_ticks_nano = now_ticks.time_since_epoch().count();
 
-						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); peer_iter++) {
-							if (peer_iter->second->valided && peer_iter->second->get_use_count() == 0) {
+						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); ) {
+							int64_t time_diff = (peer_iter->second->last_valid_time.load() - now_ticks_nano) / 1000000000LL;
+							if (
+								peer_iter->second->valided && 
+								(peer_iter->second->get_use_count() == 0) &&
+								(time_diff < 30)
+							) {
 								DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
 								std::vector<DownloadContext::PieceState*> avail_list;
 								avail_list.reserve(download_context->num_of_pieces_);
@@ -220,6 +227,11 @@ namespace grida {
 									}
 								}
 							}
+							else if (time_diff > 300) {
+								peer_iter = download_context->peers_info_.map.erase(peer_iter);
+								continue;
+							}
+							peer_iter++;
 						}
 					}
 					// ====================================================================================================

@@ -238,6 +238,8 @@ namespace grida {
 			peer_info.pieces_bitmap = bit_stream;
 			peer_info.valided = true;
 		}
+
+		peer_info.last_valid_time = std::chrono::steady_clock::now().time_since_epoch().count();
 	}
 
 } // namespace grida
