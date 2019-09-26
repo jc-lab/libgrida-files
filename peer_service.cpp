@@ -198,7 +198,7 @@ namespace grida {
 							if (
 								peer_iter->second->valided && 
 								(peer_iter->second->get_use_count() == 0) &&
-								(time_diff < 30)
+								(time_diff < config_.peer_ttl)
 							) {
 								DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
 								std::vector<DownloadContext::PieceState*> avail_list;
@@ -227,7 +227,7 @@ namespace grida {
 									}
 								}
 							}
-							else if (time_diff > 300) {
+							else if (time_diff >= config_.peer_ttl) {
 								peer_iter = download_context->peers_info_.map.erase(peer_iter);
 								continue;
 							}

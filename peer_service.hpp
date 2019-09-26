@@ -60,6 +60,8 @@ namespace grida {
 			std::string interface_addr;
 			int64_t bitrate_limit_peer;
 
+			int peer_ttl;
+
 			bool use_rdv;
 
 			Config() {
@@ -67,6 +69,7 @@ namespace grida {
 				use_rdv = true;
 				memory_pool = NULL;
 				bitrate_limit_peer = 0;
+				peer_ttl = 30;
 			}
 		};
 
