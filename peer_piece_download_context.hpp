@@ -26,7 +26,7 @@ namespace grida {
 	public:
 		static std::shared_ptr<PeerPieceDownloadContext> create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, DownloadContext::PeerInfo* peer_info, int max_count);
 
-		~PeerPieceDownloadContext() {
+		virtual ~PeerPieceDownloadContext() {
 			peer_info_->use_count_fetch_dec();
 		}
 

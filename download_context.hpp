@@ -100,7 +100,7 @@ namespace grida {
 
 			int use_count_fetch_dec()
 			{
-				return count_.fetch_add(-1);
+				return count_.fetch_sub(1);
 			};
 
 			int get_use_count() const {
