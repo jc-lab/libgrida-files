@@ -217,8 +217,6 @@ namespace grida {
 									int target_index = download_context->random_->nextInt(avail_list.size() - 1);
 									DownloadContext::PieceState* target_piece = avail_list[target_index];
 
-									target_piece->status_ = DownloadContext::PieceState::STATUS_DOWNLOADING;
-
 									// GO DOWNLOAD!
 									std::shared_ptr<PeerPieceDownloadContext> piece_download_context(PeerPieceDownloadContext::create(&piece_download_handler_, loop_.get(), download_context->self(), target_piece, peer_info, 1));
 									if (piece_download_context) {

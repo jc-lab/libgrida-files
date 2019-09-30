@@ -24,6 +24,9 @@ namespace grida {
 	PieceDownloadContext::PieceDownloadContext(PeerService::PieceDownloadHandler* peer_service_handler, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::DownloaderType downloader_type, DownloadContext::PieceState* piece)
 		: peer_service_handler_(peer_service_handler), download_ctx_(download_ctx), downloader_type_(downloader_type), written_bytes_(0), alive_(true), loop_(NULL)
 	{
+		piece->status_ = DownloadContext::PieceState::STATUS_DOWNLOADING;
+
+		piece_ = piece;
 		object_id_ = download_ctx->object_id();
 		piece_id_ = piece->piece_id();
 		piece_size_ = download_ctx->piece_size();
