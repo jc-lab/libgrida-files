@@ -59,6 +59,7 @@ namespace grida {
 		int64_t file_offset_;
 		int written_bytes_;
 
+		std::atomic<int64_t> latest_recv_time_;
 		unsigned char digest_buf_[64];
 		int digest_len_;
 

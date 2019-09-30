@@ -43,6 +43,8 @@ namespace grida {
 		
 		loop_ = loop;
 
+		latest_recv_time_ = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
 		peer_service_handler_->add(self(), shared_self);
 
 		loop_task->on<uvw::AsyncEvent>([weak_self](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
@@ -52,19 +54,25 @@ namespace grida {
 				self->timer_timeout_->on<uvw::TimerEvent>([weak_self](const uvw::TimerEvent& timer_evt, uvw::TimerHandle& timer_handle) {
 					std::shared_ptr<PieceDownloadContext> self(weak_self.lock());
 					if (self) {
-						if (self->alive_) {
-							self->alive_ = false;
-							self->download_ctx_->pieceDownloadCancel(self.get());
-							std::shared_ptr<PieceDownloaderContext> piece_downloader_ctx = self->piece_downloader_ctx_.lock();
-							if(piece_downloader_ctx)
-								piece_downloader_ctx->onDownloadCancel();
+						int64_t now_ticks = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+						int64_t diff_ticks = now_ticks - self->latest_recv_time_;
+
+						if (diff_ticks > 10) {
+							if (self->alive_) {
+								self->alive_ = false;
+								self->download_ctx_->pieceDownloadCancel(self.get());
+								std::shared_ptr<PieceDownloaderContext> piece_downloader_ctx = self->piece_downloader_ctx_.lock();
+								if (piece_downloader_ctx)
+									piece_downloader_ctx->onDownloadCancel();
+							}
+
+							timer_handle.stop();
+							timer_handle.close();
+							self->timer_timeout_.reset();
 						}
-						timer_handle.stop();
-						timer_handle.close();
-						self->timer_timeout_.reset();
 					}
 				});
-				self->timer_timeout_->start(uvw::TimerHandle::Time{ 330000 }, uvw::TimerHandle::Time{ 0 }); // 3min 30sec
+				self->timer_timeout_->start(uvw::TimerHandle::Time{ 1000 }, uvw::TimerHandle::Time{ 1000 }); // 3min 30sec
 			}
 			task_handle.close();
 		});
@@ -102,6 +110,8 @@ namespace grida {
 		if (!alive_)
 			return;
 
+		latest_recv_time_ = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
 		int64_t remaining = piece_size_ - written_bytes_;
 		size_t avail_len = (remaining < len) ? remaining : len;
 
@@ -122,6 +132,8 @@ namespace grida {
 	void PieceDownloadContext::done() {
 		if (!alive_)
 			return;
+
+		latest_recv_time_ = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
 		if (written_bytes_ != piece_size_)
 		{
