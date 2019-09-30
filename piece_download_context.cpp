@@ -55,6 +55,9 @@ namespace grida {
 						if (self->alive_) {
 							self->alive_ = false;
 							self->download_ctx_->pieceDownloadCancel(self.get());
+							std::shared_ptr<PieceDownloaderContext> piece_downloader_ctx = self->piece_downloader_ctx_.lock();
+							if(piece_downloader_ctx)
+								piece_downloader_ctx->onDownloadCancel();
 						}
 						timer_handle.stop();
 						timer_handle.close();

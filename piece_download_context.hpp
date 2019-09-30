@@ -28,6 +28,13 @@
 namespace grida {
 
 	class PeerService;
+	class PieceDownloadContext;
+
+	class PieceDownloaderContext {
+	protected:
+		friend class PieceDownloadContext;
+		virtual void onDownloadCancel() {}
+	};
 
     class PieceDownloadContext {
 	private:
@@ -56,6 +63,8 @@ namespace grida {
 		int digest_len_;
 
 		DownloadContext::DownloaderType downloader_type_;
+
+		std::weak_ptr<PieceDownloaderContext> piece_downloader_ctx_;
 		
 	protected:
 		PieceDownloadContext(PeerService::PieceDownloadHandler* peer_service_handler, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::DownloaderType downloader_type, DownloadContext::PieceState* piece);
@@ -98,6 +107,14 @@ namespace grida {
 
 		DownloadContext::DownloaderType downloader_type() const {
 			return downloader_type_;
+		}
+
+		void setPieceDownloaderContext(std::shared_ptr<PieceDownloaderContext> obj) {
+			piece_downloader_ctx_ = obj;
+		}
+
+		std::shared_ptr<PieceDownloaderContext> getPieceDownloaderContext() {
+			return piece_downloader_ctx_.lock();
 		}
     };
 

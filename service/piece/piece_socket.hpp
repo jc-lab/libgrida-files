@@ -23,6 +23,8 @@
 #include "../../file_handle.hpp"
 #include "../../limited_memory_pool.hpp"
 
+#include "../../piece_download_context.hpp"
+
 #include "piece_protocol.hpp"
 
 namespace grida {
@@ -36,7 +38,7 @@ namespace grida {
 
 		namespace piece {
 			
-			class PieceSocket : public tsp::TspStream {
+			class PieceSocket : public tsp::TspStream, public PieceDownloaderContext {
 			public:
 				enum ConnectionState {
 					CONN_HANDSHAKE = 1,
@@ -82,6 +84,7 @@ namespace grida {
 			protected:
 				int onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload) override;
 				int onRecvCustomPayload(tsp::TspRecvContext* recv_ctx, const unsigned char* data, int length) override;
+				void onDownloadCancel() override;
 			};
 
 		} // namespace

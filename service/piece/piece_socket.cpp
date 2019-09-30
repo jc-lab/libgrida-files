@@ -32,6 +32,13 @@ namespace grida {
 			{
 			}
 
+			void PieceSocket::onDownloadCancel() {
+				std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
+				if (handle) {
+					handle->close();
+				}
+			}
+
 			void PieceSocket::onRecvPacket(std::unique_ptr<char[]> data, size_t packet_len) {
 				std::unique_ptr<const char[]> temp(const_cast<char const*>(data.release()));
 				processRecvPacket(temp, packet_len);
@@ -109,6 +116,8 @@ namespace grida {
 				shared_handle->data(self);
 
 				piece_download_ctx_ = piece_download_ctx;
+				piece_download_ctx->setPieceDownloaderContext(self);
+
 				shared_handle->once<uvw::ConnectEvent>([this, piece_download_ctx, remote_ip, port](const uvw::ConnectEvent& evt, uvw::TCPHandle& handle) {
 					piece::PieceRequestPayload req_payload;
 
