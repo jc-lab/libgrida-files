@@ -228,7 +228,7 @@ namespace grida {
 			peer_info.valided = true;
 		}
 
-		peer_info.last_valid_time = std::chrono::steady_clock::now().time_since_epoch().count();
+		peer_info.last_valid_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()).time_since_epoch().count();
 	}
 
 } // namespace grida

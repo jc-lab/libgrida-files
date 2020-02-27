@@ -191,10 +191,10 @@ namespace grida {
 						std::unique_lock<std::recursive_mutex> pieces_lock(download_context->pieces_.mutex);
 						std::unique_lock<std::recursive_mutex> peers_lock(download_context->peers_info_.mutex);
 						std::chrono::steady_clock::time_point now_ticks = std::chrono::steady_clock::now();
-						int64_t now_ticks_nano = now_ticks.time_since_epoch().count();
+						int64_t now_ticks_milli = std::chrono::time_point_cast<std::chrono::milliseconds>(now_ticks).time_since_epoch().count();
 
 						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); ) {
-							int64_t time_diff = (now_ticks_nano - peer_iter->second->last_valid_time.load()) / 1000000000LL;
+							int64_t time_diff = (now_ticks_milli - peer_iter->second->last_valid_time.load()) / 1000LL;
 							if (
 								peer_iter->second->valided && 
 								(peer_iter->second->get_use_count() == 0) &&
