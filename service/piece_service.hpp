@@ -13,6 +13,7 @@
 
 #include <map>
 #include <mutex>
+#include <atomic>
 
 #include "../peer_piece_download_context.hpp"
 #include "../limited_memory_pool.hpp"
@@ -40,6 +41,8 @@ namespace grida {
 				std::map<piece::PieceSocket*, std::weak_ptr<piece::PieceSocket>> map;
 			} piece_sockets_;
 
+			std::atomic_int upload_socket_count_;
+
 		public:
 			PieceService(PeerService* peer_service);
 			~PieceService();
@@ -57,6 +60,9 @@ namespace grida {
 			}
 
 			int64_t getSpeedLimitBitrate();
+			int getUploadSocketCount() const;
+
+			int64_t computedSocketSpeedLimitBitrate();
 		};
 
 	} // namespace service

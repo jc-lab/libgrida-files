@@ -16,7 +16,7 @@ namespace grida {
 	namespace service {
 
 		PieceService::PieceService(PeerService* peer_service)
-			: peer_service_(peer_service)
+			: peer_service_(peer_service), upload_socket_count_(0)
 		{
 		}
 
@@ -43,10 +43,10 @@ namespace grida {
 
 				handle.accept(*client);
 				if(piece_socket->acceptFrom(piece_socket, client))
-
 				{
 					std::unique_lock<std::mutex> lock(piece_sockets_.mutex);
 					piece_sockets_.map[piece_socket.get()] = piece_socket;
+					upload_socket_count_++;
 				}
 			});
 
@@ -75,6 +75,7 @@ namespace grida {
 				auto iter = piece_sockets_.map.find(self);
 				if (iter != piece_sockets_.map.end()) {
 					piece_sockets_.map.erase(iter);
+					upload_socket_count_--;
 				}
 			}
 		}
@@ -86,6 +87,14 @@ namespace grida {
 
 		int64_t PieceService::getSpeedLimitBitrate() {
 			return peer_service_->getSpeedLimitBitratePeer();
+		}
+
+		int PieceService::getUploadSocketCount() const {
+			return upload_socket_count_;
+		}
+
+		int64_t PieceService::computedSocketSpeedLimitBitrate() {
+			return getSpeedLimitBitrate() / getUploadSocketCount();
 		}
 
 	} // namespace service

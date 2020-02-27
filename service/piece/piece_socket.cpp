@@ -162,7 +162,7 @@ namespace grida {
 						// handle is keep reference
 
 						auto time_taken = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - upload_begin_time_);
-						int64_t limit_bitrate = piece_service_->getSpeedLimitBitrate();
+						int64_t limit_bitrate = piece_service_->computedSocketSpeedLimitBitrate();
 						int64_t diff_time = 0;
 						if (limit_bitrate > 0) {
 							int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
