@@ -94,7 +94,9 @@ namespace grida {
 		}
 
 		int64_t PieceService::computedSocketSpeedLimitBitrate() {
-			return getSpeedLimitBitrate() / getUploadSocketCount();
+			int count = getUploadSocketCount();
+			if (count <= 0) count = 1;
+			return getSpeedLimitBitrate() / count;
 		}
 
 	} // namespace service
