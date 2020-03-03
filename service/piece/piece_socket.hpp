@@ -47,6 +47,8 @@ namespace grida {
 				};
 
 			private:
+				std::weak_ptr<PieceSocket> self_;
+
 				PieceService* piece_service_;
 				std::shared_ptr<uvw::Loop> loop_;
 				ThreadPool* thread_pool_;
@@ -74,12 +76,15 @@ namespace grida {
 
 				void uploadPiece();
 
+				PieceSocket(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
+
 			public:
-				PieceSocket(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool);
+				static std::shared_ptr<PieceSocket> create(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
+
 				virtual ~PieceSocket();
 
-				bool acceptFrom(std::shared_ptr<PieceSocket> self, std::shared_ptr<uvw::TCPHandle> handle);
-				void connectTo(std::shared_ptr<PieceSocket> self, const std::string& remote_ip, int port, std::shared_ptr<PieceDownloadContext> piece_download_ctx);
+				bool acceptFrom(std::shared_ptr<uvw::TCPHandle> handle);
+				void connectTo(const std::string& remote_ip, int port, std::shared_ptr<PieceDownloadContext> piece_download_ctx);
 
 			protected:
 				int onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload) override;

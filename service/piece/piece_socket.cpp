@@ -22,6 +22,12 @@ namespace grida {
 	namespace service {
 		namespace piece {
 
+			std::shared_ptr<PieceSocket> PieceSocket::create(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool) {
+				std::shared_ptr<PieceSocket> instance(new PieceSocket(piece_service, loop, thread_pool));
+				instance->self_ = instance;
+				return instance;
+			}
+
 			PieceSocket::PieceSocket(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool) : conn_state_(CONN_HANDSHAKE), piece_service_(piece_service), loop_(loop), thread_pool_(thread_pool), task_count_(0)
 			{
 				addProtocol(&piece_protocol_);
@@ -68,13 +74,19 @@ namespace grida {
 				}
 			}
 
-			bool PieceSocket::acceptFrom(std::shared_ptr<PieceSocket> self, std::shared_ptr<uvw::TCPHandle> shared_handle)
+			bool PieceSocket::acceptFrom(std::shared_ptr<uvw::TCPHandle> shared_handle)
 			{
+				std::weak_ptr<PieceSocket> weak_self(self_);
+				std::shared_ptr<PieceSocket> self(self_.lock());
+
 				handle_ = shared_handle;
 				shared_handle->data(self);
 
-				shared_handle->on<uvw::DataEvent>([this](uvw::DataEvent& evt, uvw::TCPHandle& handle) {
-					onRecvPacket(std::move(evt.data), evt.length);
+				shared_handle->on<uvw::DataEvent>([weak_self](uvw::DataEvent& evt, uvw::TCPHandle& handle) {
+					std::shared_ptr<PieceSocket> self(weak_self.lock());
+					if (self) {
+						self->onRecvPacket(std::move(evt.data), evt.length);
+					}
 				});
 				shared_handle->on<uvw::ErrorEvent>([](const uvw::ErrorEvent&, uvw::TCPHandle& handle) {
 					handle.close();
@@ -109,8 +121,10 @@ namespace grida {
 				return true;
 			}
 
-			void PieceSocket::connectTo(std::shared_ptr<PieceSocket> self, const std::string& remote_ip, int port, std::shared_ptr<PieceDownloadContext> piece_download_ctx)
+			void PieceSocket::connectTo(const std::string& remote_ip, int port, std::shared_ptr<PieceDownloadContext> piece_download_ctx)
 			{
+				std::shared_ptr<PieceSocket> self(self_.lock());
+
 				std::shared_ptr<uvw::TCPHandle> shared_handle = loop_->resource<uvw::TCPHandle>();
 				handle_ = shared_handle;
 				shared_handle->data(self);
@@ -154,32 +168,38 @@ namespace grida {
 
 			void PieceSocket::uploadPiece()
 			{
+				std::weak_ptr<PieceSocket> weak_self(self_);
+
 				std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
 				LimitedMemoryPool::PooledPack *pack = (LimitedMemoryPool::PooledPack *)pooled_buffer_.get();
 				int64_t read_bytes = file_handle_->read(pack->raw(), pack->size());
 				if (read_bytes > 0) {
-					handle->once<uvw::WriteEvent>([this, handle, read_bytes](uvw::WriteEvent& evt, uvw::TCPHandle& h) {
+					handle->once<uvw::WriteEvent>([weak_self, handle, read_bytes](uvw::WriteEvent& evt, uvw::TCPHandle& h) {
+						std::shared_ptr<PieceSocket> self(weak_self);
 						// handle is keep reference
 
-						auto time_taken = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - upload_begin_time_);
-						int64_t limit_bitrate = piece_service_->computedSocketSpeedLimitBitrate();
-						int64_t diff_time = 0;
-						if (limit_bitrate > 0) {
-							int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
-							diff_time = time_to_take - time_taken.count();
+						if (self) {
+							auto time_taken = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - self->upload_begin_time_);
+							int64_t limit_bitrate = self->piece_service_->computedSocketSpeedLimitBitrate();
+							int64_t diff_time = 0;
+							if (limit_bitrate > 0) {
+								int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
+								diff_time = time_to_take - time_taken.count();
 
-							float speed = (float)read_bytes * 8 / (float)time_taken.count();
-							printf("UPLOAD SPEED : %f Mbits/s   :::: difftime = %lld - %lld = %lld\n", speed, time_to_take, time_taken.count(), diff_time);
-						}
-						if (limit_bitrate > 0 && diff_time > 0) {
-							auto next_timer = h.loop().resource<uvw::TimerHandle>();
-							next_timer->once<uvw::TimerEvent>([this, handle](uvw::TimerEvent& evt, uvw::TimerHandle& h) {
-								// handle is keep reference
-								uploadPiece();
+								float speed = (float)read_bytes * 8 / (float)time_taken.count();
+								printf("UPLOAD SPEED : %f Mbits/s   :::: difftime = %lld - %lld = %lld\n", speed, time_to_take, time_taken.count(), diff_time);
+							}
+							if (limit_bitrate > 0 && diff_time > 0) {
+								auto next_timer = h.loop().resource<uvw::TimerHandle>();
+								next_timer->once<uvw::TimerEvent>([weak_self, handle](uvw::TimerEvent& evt, uvw::TimerHandle& h) {
+									std::shared_ptr<PieceSocket> self(weak_self);
+									// handle is keep reference
+									self->uploadPiece();
 								});
-							next_timer->start(uvw::TimerHandle::Time{ diff_time / 1000 }, uvw::TimerHandle::Time{ 0 });
-						} else { 
-							uploadPiece();
+								next_timer->start(uvw::TimerHandle::Time{ diff_time / 1000 }, uvw::TimerHandle::Time{ 0 });
+							} else {
+								self->uploadPiece();
+							}
 						}
 					});
 					upload_begin_time_ = std::chrono::steady_clock::now();
@@ -191,6 +211,8 @@ namespace grida {
 
 			int PieceSocket::onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload)
 			{
+				std::weak_ptr<PieceSocket> weak_self(self_);
+
 				std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
 				const PiecePayload* piece_payload = dynamic_cast<const PiecePayload*>(payload.get());
 				if (piece_payload->payload_type() == PieceRequestPayload::PAYLOAD_TYPE)
@@ -209,9 +231,13 @@ namespace grida {
 					conn_state_ = CONN_DATA;
 
 					std::shared_ptr<uvw::AsyncHandle> task = handle->loop().resource<uvw::AsyncHandle>();
-					task->once<uvw::AsyncEvent>([this, handle](const uvw::AsyncEvent& evt, uvw::AsyncHandle& h) {
+					task->once<uvw::AsyncEvent>([weak_self, handle](const uvw::AsyncEvent& evt, uvw::AsyncHandle& h) {
+						std::shared_ptr<PieceSocket> self(weak_self.lock());
 						// handle is keep reference
-						uploadPiece();
+
+						if (self) {
+							self->uploadPiece();
+						}
 						h.close();
 					});
 					task->send();

@@ -94,7 +94,7 @@ namespace grida {
 				}
 			} discovery_contexts_;
 
-			std::shared_ptr<Impl> self_;
+			std::weak_ptr<Impl> self_;
 			Impl(PeerContext* peer_context, const internal::LoopProvider* loop_provider);
 
         public:

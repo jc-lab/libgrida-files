@@ -39,10 +39,10 @@ namespace grida {
 			local_tcp_listener_ = peer_service_->get_loop()->resource<uvw::TCPHandle>();
 			local_tcp_listener_->on<uvw::ListenEvent>([this](const uvw::ListenEvent& evt, uvw::TCPHandle& handle) {
 				std::shared_ptr<uvw::TCPHandle> client = handle.loop().resource<uvw::TCPHandle>();
-				std::shared_ptr<piece::PieceSocket> piece_socket(new piece::PieceSocket(this, peer_service_->get_loop(), peer_service_->thread_pool()));
+				std::shared_ptr<piece::PieceSocket> piece_socket(piece::PieceSocket::create(this, peer_service_->get_loop(), peer_service_->thread_pool()));
 
 				handle.accept(*client);
-				if(piece_socket->acceptFrom(piece_socket, client))
+				if(piece_socket->acceptFrom(client))
 				{
 					std::unique_lock<std::mutex> lock(piece_sockets_.mutex);
 					piece_sockets_.map[piece_socket.get()] = piece_socket;
@@ -58,9 +58,9 @@ namespace grida {
 		{
 			const DownloadContext::PeerInfo* peer_info = piece_download_ctx->peer_info();
 
-			std::shared_ptr< piece::PieceSocket> piece_socket(new piece::PieceSocket(this, peer_service_->get_loop(), peer_service_->thread_pool()));
+			std::shared_ptr< piece::PieceSocket> piece_socket(piece::PieceSocket::create(this, peer_service_->get_loop(), peer_service_->thread_pool()));
 
-			piece_socket->connectTo(piece_socket, peer_info->remote_ip, 19901, piece_download_ctx);
+			piece_socket->connectTo(peer_info->remote_ip, 19901, piece_download_ctx);
 
 			{
 				std::unique_lock<std::mutex> lock(piece_sockets_.mutex);

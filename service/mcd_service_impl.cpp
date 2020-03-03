@@ -62,7 +62,7 @@ namespace grida {
 			discovery_timer_ = loop->resource<uvw::TimerHandle>();
 			discovery_timer_->on<uvw::TimerEvent>([weak_self, thread_pool](const uvw::TimerEvent& evt, uvw::TimerHandle& handle) {
 				thread_pool->send([weak_self]() {
-					std::shared_ptr<Impl> self(weak_self);
+					std::shared_ptr<Impl> self(weak_self.lock());
 					if (self) {
 						std::unique_lock<std::mutex> lock(self->discovery_contexts_.mutex);
 						std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
@@ -91,7 +91,7 @@ namespace grida {
 				std::shared_ptr<uvw::AsyncHandle> loop_task = loop->resource<uvw::AsyncHandle>();
 				std::shared_ptr<uvw::TimerHandle> discovery_timer(discovery_timer_);
 				discovery_timer_.reset();
-				loop_task->on<uvw::AsyncEvent>([discovery_timer](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
+				loop_task->once<uvw::AsyncEvent>([discovery_timer](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
 					if (discovery_timer->active()) {
 						discovery_timer->stop();
 					}
@@ -283,7 +283,7 @@ namespace grida {
 				send_socket_->send(multicast_addr_, 19800, std::move(packet_data), packet_len);
 			}, std::move(packet_data), packet_len);
 
-			task->on<uvw::AsyncEvent>([runnable](const uvw::AsyncEvent& evt, uvw::AsyncHandle& handle) {
+			task->once<uvw::AsyncEvent>([runnable](const uvw::AsyncEvent& evt, uvw::AsyncHandle& handle) {
 				runnable->run();
 				handle.close();
 			});
