@@ -26,6 +26,12 @@ namespace grida {
 			: impl_(impl)
 		{
 		}
+		
+		std::shared_ptr<McdService::Impl> McdService::Impl::create(PeerContext* peer_context, const internal::LoopProvider* loop_provider) {
+			std::shared_ptr<Impl> instance(new Impl(peer_context, loop_provider));
+			instance->self_ = instance;
+			return instance;
+		}
 
         McdService::Impl::Impl(PeerContext *peer_context, const internal::LoopProvider* loop_provider) :
         peer_context_(peer_context), loop_provider_(loop_provider), transport_(this)
@@ -40,6 +46,8 @@ namespace grida {
         }
 
         int McdService::Impl::start(ThreadPool *thread_pool, const std::string& multicast_ip, const std::string& interface_ip) {
+			std::weak_ptr<Impl> weak_self(self_);
+
 			std::shared_ptr<uvw::Loop> loop(loop_provider_->get_loop());
 
             protocol_pske_ = peer_context_->createMcdPskeProtocol();
@@ -52,16 +60,19 @@ namespace grida {
             transport_.start(thread_pool);
 
 			discovery_timer_ = loop->resource<uvw::TimerHandle>();
-			discovery_timer_->on<uvw::TimerEvent>([this, thread_pool](const uvw::TimerEvent& evt, uvw::TimerHandle& handle) {
-				thread_pool->send([this]() {
-					std::unique_lock<std::mutex> lock(discovery_contexts_.mutex);
-					std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
-					for (auto iter = discovery_contexts_.map.begin(); iter != discovery_contexts_.map.end(); iter++) {
-						auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - iter->second.created_at);
-						if (diff.count() >= 1000) {
-							mcd::McdObjectDiscoveryRequestPayload payload;
-							payload.object_id.set(iter->first);
-							sendMcdPayload(&payload, (tsp::PskeFlags)(grida::tsp::PSKE_FLAG_BROADCAST | grida::tsp::PSKE_FLAG_IPE));
+			discovery_timer_->on<uvw::TimerEvent>([weak_self, thread_pool](const uvw::TimerEvent& evt, uvw::TimerHandle& handle) {
+				thread_pool->send([weak_self]() {
+					std::shared_ptr<Impl> self(weak_self);
+					if (self) {
+						std::unique_lock<std::mutex> lock(self->discovery_contexts_.mutex);
+						std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
+						for (auto iter = self->discovery_contexts_.map.begin(); iter != self->discovery_contexts_.map.end(); iter++) {
+							auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - iter->second.created_at);
+							if (diff.count() >= 1000) {
+								mcd::McdObjectDiscoveryRequestPayload payload;
+								payload.object_id.set(iter->first);
+								self->sendMcdPayload(&payload, (tsp::PskeFlags)(grida::tsp::PSKE_FLAG_BROADCAST | grida::tsp::PSKE_FLAG_IPE));
+							}
 						}
 					}
 				});
@@ -72,6 +83,24 @@ namespace grida {
         }
 
         int McdService::Impl::stop() {
+			std::shared_ptr<uvw::Loop> loop(loop_provider_->get_loop());
+
+			self_.reset();
+
+			if (discovery_timer_) {
+				std::shared_ptr<uvw::AsyncHandle> loop_task = loop->resource<uvw::AsyncHandle>();
+				std::shared_ptr<uvw::TimerHandle> discovery_timer(discovery_timer_);
+				discovery_timer_.reset();
+				loop_task->on<uvw::AsyncEvent>([discovery_timer](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
+					if (discovery_timer->active()) {
+						discovery_timer->stop();
+					}
+					discovery_timer->close();
+					task_handle.close();
+				});
+				loop_task->send();
+			}
+
             return 0;
         }
 

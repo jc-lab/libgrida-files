@@ -94,13 +94,17 @@ namespace grida {
 				}
 			} discovery_contexts_;
 
+			std::shared_ptr<Impl> self_;
+			Impl(PeerContext* peer_context, const internal::LoopProvider* loop_provider);
+
         public:
             TspLayer transport_;
             mcd::McdProtocol protocol_mcd_;
 			std::shared_ptr<uvw::TimerHandle> discovery_timer_;
 
         public:
-            Impl(PeerContext *peer_context, const internal::LoopProvider* loop_provider);
+			static std::shared_ptr<Impl> create(PeerContext* peer_context, const internal::LoopProvider* loop_provider);
+
             ~Impl();
             int start(ThreadPool* thread_pool, const std::string& multicast_ip, const std::string& interface_ip);
             int stop();

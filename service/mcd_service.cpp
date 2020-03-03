@@ -14,7 +14,7 @@ namespace grida {
 	namespace service {
 
 		McdService::McdService(const internal::LoopProvider* provider, PeerContext* peer_context)
-			: LoopUse(provider), impl_(new Impl(peer_context, provider))
+			: LoopUse(provider), impl_(Impl::create(peer_context, provider))
 		{
 		}
 

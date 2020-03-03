@@ -28,7 +28,7 @@ namespace grida {
 		private:
 			class TspLayer;
 
-			std::unique_ptr<Impl> impl_;
+			std::shared_ptr<Impl> impl_;
 
 		public:
 			McdService(const internal::LoopProvider* provider, PeerContext *peer_context);
