@@ -24,6 +24,8 @@
 
 #include "thread_pool.hpp"
 
+#include "logger.hpp"
+
 namespace grida {
 
 	namespace service {
@@ -86,6 +88,8 @@ namespace grida {
 	private:
 		class PieceFileHandle;
 
+		std::shared_ptr<Logger> logger_;
+
 		std::shared_ptr<::uvw::Loop> loop_;
 
 		ThreadPool thread_pool_;
@@ -132,8 +136,12 @@ namespace grida {
 		}
 
 	public:
-		PeerService(const std::shared_ptr<::uvw::Loop>& loop);
+		PeerService(const std::shared_ptr<::uvw::Loop>& loop, std::shared_ptr<Logger> logger = nullptr);
 		~PeerService();
+
+		std::shared_ptr<Logger> get_logger() const {
+			return logger_;
+		}
 
 		std::shared_ptr<::uvw::Loop> get_loop() const override {
 			return loop_;

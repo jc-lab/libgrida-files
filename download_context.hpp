@@ -89,9 +89,11 @@ namespace grida {
 			bool valided;
 			std::atomic<int64_t> last_valid_time; // milliseconds
 
+			std::atomic_int fail_count_;
+
 			std::atomic_int count_;
 
-			PeerInfo() : valided(false), count_(0) { }
+			PeerInfo() : valided(false), fail_count_(0), count_(0) { }
 
 			int use_count_fetch_inc()
 			{
@@ -105,6 +107,14 @@ namespace grida {
 
 			int get_use_count() const {
 				return count_.load();
+			}
+
+			int fail_count_inc_fetch() {
+				return ++fail_count_;
+			}
+
+			int get_fail_count() const {
+				return fail_count_.load();
 			}
 		};
 

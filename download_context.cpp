@@ -226,6 +226,8 @@ namespace grida {
 		if (bit_stream.bits_size() == num_of_pieces_) {
 			peer_info.pieces_bitmap = bit_stream;
 			peer_info.valided = true;
+		} else {
+			peer_info.valided = false;
 		}
 
 		peer_info.last_valid_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()).time_since_epoch().count();

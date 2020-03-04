@@ -26,6 +26,8 @@ namespace grida {
 
 	class PeerContext {
 	public:
+		virtual std::shared_ptr<Logger> get_logger() const = 0;
+
 		/* MultiCast Discovery Communication Layer */
 		virtual std::unique_ptr<tsp::TspRecvContext> createMcdTspRecvContext(const std::string& remote_ip, int remote_port) = 0;
 		virtual std::unique_ptr<tsp::PskeProtocol> createMcdPskeProtocol() = 0;

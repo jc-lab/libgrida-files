@@ -104,9 +104,14 @@ namespace grida {
 		}
 	};
 
-	PeerService::PeerService(const std::shared_ptr<::uvw::Loop>& loop)
+	PeerService::PeerService(const std::shared_ptr<::uvw::Loop>& loop, std::shared_ptr<Logger> logger)
 		: loop_(loop), piece_service_(service::PieceService::create(this)), piece_download_handler_(this)
 	{
+		if (logger) {
+			logger_ = logger;
+		} else {
+			logger_.reset(new Logger());
+		}
 	}
 
 	PeerService::~PeerService() {
@@ -201,7 +206,8 @@ namespace grida {
 							if (
 								peer_iter->second->valided && 
 								(peer_iter->second->get_use_count() == 0) &&
-								(time_diff < config_.peer_ttl)
+								(time_diff < config_.peer_ttl) &&
+								(peer_iter->second->get_fail_count() < 10)
 							) {
 								DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
 								std::vector<DownloadContext::PieceState*> avail_list;

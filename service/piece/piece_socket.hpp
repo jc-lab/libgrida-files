@@ -63,6 +63,12 @@ namespace grida {
 				// For download
 				std::shared_ptr<PieceDownloadContext> piece_download_ctx_;
 
+				// Not downloaded = 0
+				// Downloading = 1
+				// Success = 2
+				// Failed = -1
+				int download_state_;
+
 				// For upload
 				std::shared_ptr<FileHandle> file_handle_;
 				std::unique_ptr<LimitedMemoryPool::PooledPack> pooled_buffer_;

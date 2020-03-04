@@ -13,6 +13,8 @@
 #include <vector>
 #include <string>
 
+#include "../logger.hpp"
+
 namespace grida {
 	
 	namespace tsp {
@@ -47,6 +49,10 @@ namespace grida {
 
 		class Protocol {
 		public:
+			virtual std::shared_ptr<Logger> get_logger() const {
+				return nullptr;
+			}
+
 			virtual uint8_t get_sp_type() const = 0;
 
 			virtual int makePacket(std::unique_ptr<char[]>& out_packet, const Payload* in_payload, void* user_ctx) = 0;

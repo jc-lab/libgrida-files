@@ -28,7 +28,7 @@ namespace grida {
 				return instance;
 			}
 
-			PieceSocket::PieceSocket(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool) : conn_state_(CONN_HANDSHAKE), piece_service_(piece_service), loop_(loop), thread_pool_(thread_pool), task_count_(0)
+			PieceSocket::PieceSocket(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool) : conn_state_(CONN_HANDSHAKE), piece_service_(piece_service), loop_(loop), thread_pool_(thread_pool), task_count_(0), download_state_(0)
 			{
 				addProtocol(&piece_protocol_);
 				setEndpayloadType(piece_protocol_.get_sp_type());
@@ -139,6 +139,8 @@ namespace grida {
 				handle_ = shared_handle;
 				shared_handle->data(self);
 
+				download_state_ = 1;
+
 				piece_download_ctx_ = piece_download_ctx;
 				piece_download_ctx->setPieceDownloaderContext(self);
 
@@ -165,12 +167,21 @@ namespace grida {
 					handle.close();
 				});
 				shared_handle->on<uvw::CloseEvent>([](const uvw::CloseEvent&, uvw::TCPHandle& handle) {
-					{
-						auto peer = handle.peer();
-						printf("PieceSocket closeFrom : %s:%d\n", peer.ip.c_str(), peer.port);
-					}
+					auto peer = handle.peer();
 
 					std::shared_ptr<PieceSocket> self = std::static_pointer_cast<PieceSocket>(handle.data());
+					std::shared_ptr<PeerPieceDownloadContext> peer_piece_download_ctx = std::dynamic_pointer_cast<PeerPieceDownloadContext>(self ? self->piece_download_ctx_ : nullptr);
+
+					if (peer_piece_download_ctx) {
+						DownloadContext::PeerInfo* peer_info = peer_piece_download_ctx->peer_info();
+						if (self->download_state_ != 0 && self->download_state_ != 2) {
+							printf("fail_count_inc_fetch : %s:%d\n", peer.ip.c_str(), peer.port);
+							peer_info->fail_count_inc_fetch();
+						}
+					}
+
+					printf("PieceSocket closeFrom : %s:%d\n", peer.ip.c_str(), peer.port);
+
 					self->closeWithQueue();
 				});
 				shared_handle->connect(remote_ip, port);

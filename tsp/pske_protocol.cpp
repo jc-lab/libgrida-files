@@ -173,6 +173,8 @@ namespace grida {
 
 		int PskeProtocol::parsePayload(std::unique_ptr<Payload>& out_payload, const unsigned char* in_packet, int in_length, void* user_ctx)
 		{
+			std::shared_ptr<Logger> logger = get_logger();
+
 			int rc;
 
 			uint16_t sign_length = 0;
@@ -198,6 +200,9 @@ namespace grida {
 			if ((payload->dest_identification_number != get_identification_number()) && ((payload->flags & PSKE_FLAG_BROADCAST) == 0))
 			{
 				// Loopback packet -> Drop
+				if (logger) {
+					logger->printf("Wrong dest_identification_number: [my=%u, dest=%u]", get_identification_number(), payload->dest_identification_number);
+				}
 				return 0;
 			}
 
@@ -257,19 +262,29 @@ namespace grida {
 					if (!result)
 					{
 						// Some error -> Drop
+						if (logger) {
+							logger->printf("Signed packet verify failed(Some error): [my=%u, dest=%u]", get_identification_number(), payload->dest_identification_number);
+						}
 						return 0;
 					}
-					if (!result)
+					if (!result.ref())
 					{
 						// Validation failed -> Drop
+						if (logger) {
+							logger->printf("Signed packet verify failed(Wrong signature): [my=%u, dest=%u]", get_identification_number(), payload->dest_identification_number);
+						}
 						return 0;
 					}
 				}
 			}
 
 			rc = verifySequenceNumber(user_ctx, payload.get());
-			if (rc <= 0)
+			if (rc <= 0) {
+				if (logger) {
+					logger->printf("verifySequenceNumber failed(Wrong signature): [my=%u, dest=%u]: %d", get_identification_number(), payload->dest_identification_number, rc);
+				}
 				return rc;
+			}
 
 			out_payload = std::move(payload);
 			return 1;
