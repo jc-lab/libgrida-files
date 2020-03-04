@@ -22,13 +22,13 @@ namespace grida {
 	namespace service {
 		namespace piece {
 
-			std::shared_ptr<PieceSocket> PieceSocket::create(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool) {
+			std::shared_ptr<PieceSocket> PieceSocket::create(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool) {
 				std::shared_ptr<PieceSocket> instance(new PieceSocket(piece_service, loop, thread_pool));
 				instance->self_ = instance;
 				return instance;
 			}
 
-			PieceSocket::PieceSocket(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool) : conn_state_(CONN_HANDSHAKE), piece_service_(piece_service), loop_(loop), thread_pool_(thread_pool), task_count_(0)
+			PieceSocket::PieceSocket(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool *thread_pool) : conn_state_(CONN_HANDSHAKE), piece_service_(piece_service), loop_(loop), thread_pool_(thread_pool), task_count_(0)
 			{
 				addProtocol(&piece_protocol_);
 				setEndpayloadType(piece_protocol_.get_sp_type());
@@ -59,6 +59,8 @@ namespace grida {
 			}
 
 			void PieceSocket::closeWithQueue() {
+				std::shared_ptr<PieceService> piece_service(piece_service_.lock());
+
 				if (task_count_ > 0) {
 					std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
 					thread_pool_->send([](std::shared_ptr<uvw::TCPHandle> handle) {
@@ -70,7 +72,9 @@ namespace grida {
 						piece_download_ctx_->done();
 						piece_download_ctx_.reset();
 					}
-					piece_service_->doneRequest(this);
+					if (piece_service) {
+						piece_service->doneRequest(this);
+					}
 				}
 			}
 
@@ -78,6 +82,12 @@ namespace grida {
 			{
 				std::weak_ptr<PieceSocket> weak_self(self_);
 				std::shared_ptr<PieceSocket> self(self_.lock());
+				std::shared_ptr<PieceService> piece_service(piece_service_.lock());
+
+				if (!piece_service) {
+					shared_handle->close();
+					return false;
+				}
 
 				handle_ = shared_handle;
 				shared_handle->data(self);
@@ -109,7 +119,7 @@ namespace grida {
 					printf("PieceSocket acceptFrom : %s:%d\n", peer.ip.c_str(), peer.port);
 				}
 
-				pooled_buffer_ = piece_service_->piece_buf_pool()->allocatePack(4194304);
+				pooled_buffer_ = piece_service->piece_buf_pool()->allocatePack(4194304);
 				if (!pooled_buffer_) {
 					printf("***************MEMORY ALLOCATE FAILED****************");
 					shared_handle->close();
@@ -176,11 +186,12 @@ namespace grida {
 				if (read_bytes > 0) {
 					handle->once<uvw::WriteEvent>([weak_self, handle, read_bytes](uvw::WriteEvent& evt, uvw::TCPHandle& h) {
 						std::shared_ptr<PieceSocket> self(weak_self);
+						std::shared_ptr<PieceService> piece_service(self ? self->piece_service_.lock() : nullptr);
 						// handle is keep reference
 
-						if (self) {
+						if (self && piece_service) {
 							auto time_taken = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - self->upload_begin_time_);
-							int64_t limit_bitrate = self->piece_service_->computedSocketSpeedLimitBitrate();
+							int64_t limit_bitrate = piece_service->computedSocketSpeedLimitBitrate();
 							int64_t diff_time = 0;
 							if (limit_bitrate > 0) {
 								int64_t time_to_take = read_bytes * 8 * 1000000LL / limit_bitrate;;
@@ -200,6 +211,8 @@ namespace grida {
 							} else {
 								self->uploadPiece();
 							}
+						} else {
+							handle->close();
 						}
 					});
 					upload_begin_time_ = std::chrono::steady_clock::now();
@@ -212,6 +225,11 @@ namespace grida {
 			int PieceSocket::onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload)
 			{
 				std::weak_ptr<PieceSocket> weak_self(self_);
+				std::shared_ptr<PieceService> piece_service(piece_service_.lock());
+
+				if (!piece_service) {
+					return 0;
+				}
 
 				std::shared_ptr<uvw::TCPHandle> handle = handle_.lock();
 				const PiecePayload* piece_payload = dynamic_cast<const PiecePayload*>(payload.get());
@@ -220,7 +238,7 @@ namespace grida {
 					const PieceRequestPayload* real_payload = dynamic_cast<const PieceRequestPayload*>(piece_payload);
 					PieceStartDataPayload start_payload;
 					int64_t piece_size = 0;
-					file_handle_ = piece_service_->openPieceFile(real_payload->object_id.get(), real_payload->piece_id.get());
+					file_handle_ = piece_service->openPieceFile(real_payload->object_id.get(), real_payload->piece_id.get());
 					if (!file_handle_) {
 						handle->close();
 						return 1;

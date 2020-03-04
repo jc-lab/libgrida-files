@@ -49,7 +49,7 @@ namespace grida {
 			private:
 				std::weak_ptr<PieceSocket> self_;
 
-				PieceService* piece_service_;
+				std::weak_ptr<PieceService> piece_service_;
 				std::shared_ptr<uvw::Loop> loop_;
 				ThreadPool* thread_pool_;
 
@@ -76,10 +76,10 @@ namespace grida {
 
 				void uploadPiece();
 
-				PieceSocket(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
+				PieceSocket(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
 
 			public:
-				static std::shared_ptr<PieceSocket> create(PieceService* piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
+				static std::shared_ptr<PieceSocket> create(std::shared_ptr<PieceService> piece_service, std::shared_ptr<uvw::Loop> loop, ThreadPool* thread_pool);
 
 				virtual ~PieceSocket();
 

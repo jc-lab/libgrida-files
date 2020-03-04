@@ -105,7 +105,7 @@ namespace grida {
 	};
 
 	PeerService::PeerService(const std::shared_ptr<::uvw::Loop>& loop)
-		: loop_(loop), piece_service_(std::make_unique<service::PieceService>(this)), piece_download_handler_(this)
+		: loop_(loop), piece_service_(service::PieceService::create(this)), piece_download_handler_(this)
 	{
 	}
 
@@ -140,6 +140,9 @@ namespace grida {
 	int PeerService::stop()
 	{
 		manage_thread_run_.store(false);
+		if (piece_service_) {
+			piece_service_->stop();
+		}
 		thread_pool_.stop();
 		if (manage_thread_.joinable()) {
 			manage_thread_.join();

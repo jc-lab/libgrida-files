@@ -15,13 +15,28 @@
 namespace grida {
 	namespace service {
 
+		std::shared_ptr<PieceService> PieceService::create(PeerService* peer_service) {
+			std::shared_ptr<PieceService> instance(new PieceService(peer_service));
+			instance->self_ = instance;
+			return instance;
+		}
+
 		PieceService::PieceService(PeerService* peer_service)
-			: peer_service_(peer_service), upload_socket_count_(0)
+			: peer_service_(peer_service), started_(false), upload_socket_count_(0)
 		{
 		}
 
 		PieceService::~PieceService()
 		{
+			stop();
+		}
+
+		void PieceService::init(LimitedMemoryPool* memory_pool) {
+			memory_pool_ = memory_pool;
+		}
+
+		void PieceService::stop() {
+			started_.store(false);
 			if (local_tcp_listener_)
 			{
 				local_tcp_listener_->stop();
@@ -30,23 +45,24 @@ namespace grida {
 			}
 		}
 
-		void PieceService::init(LimitedMemoryPool* memory_pool) {
-			memory_pool_ = memory_pool;
-		}
-
 		void PieceService::listen(int port)
 		{
-			local_tcp_listener_ = peer_service_->get_loop()->resource<uvw::TCPHandle>();
-			local_tcp_listener_->on<uvw::ListenEvent>([this](const uvw::ListenEvent& evt, uvw::TCPHandle& handle) {
-				std::shared_ptr<uvw::TCPHandle> client = handle.loop().resource<uvw::TCPHandle>();
-				std::shared_ptr<piece::PieceSocket> piece_socket(piece::PieceSocket::create(this, peer_service_->get_loop(), peer_service_->thread_pool()));
+			std::weak_ptr<PieceService> weak_self(self_.lock());
 
-				handle.accept(*client);
-				if(piece_socket->acceptFrom(client))
-				{
-					std::unique_lock<std::mutex> lock(piece_sockets_.mutex);
-					piece_sockets_.map[piece_socket.get()] = piece_socket;
-					upload_socket_count_++;
+			local_tcp_listener_ = peer_service_->get_loop()->resource<uvw::TCPHandle>();
+			local_tcp_listener_->on<uvw::ListenEvent>([weak_self](const uvw::ListenEvent& evt, uvw::TCPHandle& handle) {
+				std::shared_ptr<PieceService> self(weak_self.lock());
+				if (self && self->started_.load()) {
+					std::shared_ptr<uvw::TCPHandle> client = handle.loop().resource<uvw::TCPHandle>();
+					std::shared_ptr<piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, self->peer_service_->get_loop(), self->peer_service_->thread_pool()));
+
+					handle.accept(*client);
+					if (piece_socket->acceptFrom(client))
+					{
+						std::unique_lock<std::mutex> lock(self->piece_sockets_.mutex);
+						self->piece_sockets_.map[piece_socket.get()] = piece_socket;
+						self->upload_socket_count_++;
+					}
 				}
 			});
 
@@ -56,9 +72,10 @@ namespace grida {
 
 		piece::PieceSocket* PieceService::requestPieceToPeer(std::shared_ptr<PeerPieceDownloadContext> piece_download_ctx)
 		{
+			std::shared_ptr<PieceService> self(self_.lock());
 			const DownloadContext::PeerInfo* peer_info = piece_download_ctx->peer_info();
 
-			std::shared_ptr< piece::PieceSocket> piece_socket(piece::PieceSocket::create(this, peer_service_->get_loop(), peer_service_->thread_pool()));
+			std::shared_ptr< piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, peer_service_->get_loop(), peer_service_->thread_pool()));
 
 			piece_socket->connectTo(peer_info->remote_ip, 19901, piece_download_ctx);
 

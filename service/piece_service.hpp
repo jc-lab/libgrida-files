@@ -30,6 +30,9 @@ namespace grida {
 
 		class PieceService {
 		private:
+			std::weak_ptr<PieceService> self_;
+			std::atomic_bool started_;
+
 			PeerService* peer_service_;
 
 			LimitedMemoryPool* memory_pool_;
@@ -43,11 +46,14 @@ namespace grida {
 
 			std::atomic_int upload_socket_count_;
 
-		public:
 			PieceService(PeerService* peer_service);
+
+		public:
+			static std::shared_ptr<PieceService> create(PeerService* peer_service);
 			~PieceService();
 			
 			void init(LimitedMemoryPool* memory_pool);
+			void stop();
 			void listen(int port);
 
 			piece::PieceSocket* requestPieceToPeer(std::shared_ptr<PeerPieceDownloadContext> piece_download_ctx);

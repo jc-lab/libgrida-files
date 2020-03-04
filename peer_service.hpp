@@ -95,7 +95,7 @@ namespace grida {
 
 		Config config_;
 
-		std::unique_ptr<service::PieceService> piece_service_;
+		std::shared_ptr<service::PieceService> piece_service_;
 
 		PieceDownloadHandler piece_download_handler_;
 
