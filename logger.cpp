@@ -29,7 +29,7 @@ namespace grida {
 
         strcat_s(buffer.data(), buffer.size(), "\n");
 
-        this->puts(buffer.data());
+        this->_puts(buffer.data());
 	}
 
 } // namespace grida
