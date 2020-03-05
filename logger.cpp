@@ -12,8 +12,8 @@
 
 namespace grida {
 
-	void Logger::puts(const std::string& text) {
-        puts(text.c_str());
+	void Logger::_puts(const std::string& text) {
+        ::puts(text.c_str());
 	}
 
 	void Logger::printf(const char *format, ...) {
@@ -29,7 +29,7 @@ namespace grida {
 
         strcat_s(buffer.data(), buffer.size(), "\n");
 
-        puts(buffer.data());
+        this->puts(buffer.data());
 	}
 
 } // namespace grida

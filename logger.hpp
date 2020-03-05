@@ -18,7 +18,7 @@ namespace grida {
 
     class Logger {
     public:
-        virtual void puts(const std::string& text);
+        virtual void _puts(const std::string& text);
         virtual void printf(const char *format, ...);
     };
 
