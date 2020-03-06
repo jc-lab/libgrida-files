@@ -174,7 +174,7 @@ namespace grida {
 						DownloadContext::PeerInfo* peer_info = peer_piece_download_ctx->peer_info();
 						if (peer_piece_download_ctx->status() != PieceDownloadContext::DOWNLOAD_STATUS_SUCCESS) {
 							int count = peer_info->fail_count_inc_fetch();
-							printf("fail_count_inc_fetch : %s:%d\n", peer.ip.c_str(), peer.port);
+							printf("fail_count_inc_fetch : %s:%d: [count=%d, status=%d]\n", peer.ip.c_str(), peer.port, count, peer_piece_download_ctx->status());
 						}
 					}
 
