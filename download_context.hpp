@@ -90,6 +90,7 @@ namespace grida {
 			std::atomic<int64_t> last_valid_time; // milliseconds
 
 			std::atomic_int fail_count_;
+			std::atomic_long last_failed_at_;
 
 			std::atomic_int count_;
 
@@ -109,12 +110,18 @@ namespace grida {
 				return count_.load();
 			}
 
-			int fail_count_inc_fetch() {
-				return ++fail_count_;
+			int fail_count_inc_fetch();
+
+			int64_t get_last_failed_at() const {
+				return last_failed_at_.load();
 			}
 
 			int get_fail_count() const {
 				return fail_count_.load();
+			}
+
+			void clearFailCount() {
+				fail_count_.store(0);
 			}
 		};
 

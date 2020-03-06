@@ -202,7 +202,21 @@ namespace grida {
 						int64_t now_ticks_milli = std::chrono::time_point_cast<std::chrono::milliseconds>(now_ticks).time_since_epoch().count();
 
 						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); ) {
+							DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
 							int64_t time_diff = (now_ticks_milli - peer_iter->second->last_valid_time.load()) / 1000LL;
+							
+							if (time_diff >= config_.peer_ttl) {
+								peer_iter = download_context->peers_info_.map.erase(peer_iter);
+								continue;
+							}
+
+							if (peer_info->valided && peer_info->get_fail_count() >= 10) {
+								int64_t failed_time_diff = (now_ticks_milli - peer_info->get_last_failed_at()) / 1000LL;
+								if (failed_time_diff >= 60) {
+									peer_info->clearFailCount();
+								}
+							}
+
 							if (
 								peer_iter->second->valided && 
 								(peer_iter->second->get_use_count() == 0) &&
@@ -233,10 +247,6 @@ namespace grida {
 										beginPieceDownloadByPeer(piece_download_context);
 									}
 								}
-							}
-							else if (time_diff >= config_.peer_ttl) {
-								peer_iter = download_context->peers_info_.map.erase(peer_iter);
-								continue;
 							}
 							peer_iter++;
 						}

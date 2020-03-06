@@ -14,9 +14,17 @@
 
 #include "peer_service.hpp"
 
+#include <chrono>
+
 namespace grida {
 
 	const int DownloadContext::PROGRESS_RATIO = 1000;
+
+	int DownloadContext::PeerInfo::fail_count_inc_fetch() {
+		int64_t now_ticks_milli = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()).time_since_epoch().count();
+		last_failed_at_.store(now_ticks_milli);
+		return ++fail_count_;
+	}
 
 	DownloadContext::DownloadContext(std::shared_ptr<void> user_object_ctx) : user_object_ctx_(user_object_ctx), done_flag_(false), result_(0), scd_useing_(0), peer_service_(NULL), progress_(0) {
 		random_ = jcp::SecureRandom::getInstance();
