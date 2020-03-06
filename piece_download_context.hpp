@@ -37,6 +37,15 @@ namespace grida {
 	};
 
     class PieceDownloadContext {
+	public:
+		enum Status {
+			DOWNLOAD_STATUS_DOWNLOADING,
+			DOWNLOAD_STATUS_SUCCESS,
+			DOWNLOAD_STATUS_FAILED,
+		};
+
+		Status status_;
+
 	private:
 		uvw::Loop* loop_;
 		PeerService::PieceDownloadHandler* peer_service_handler_;
@@ -92,6 +101,10 @@ namespace grida {
 
 		bool alive() const {
 			return alive_;
+		}
+
+		Status status() const {
+			return status_;
 		}
 
 		const unsigned char* digest_buf() const {

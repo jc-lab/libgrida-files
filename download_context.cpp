@@ -72,11 +72,15 @@ namespace grida {
 
 		if (memcmp(piece_state.digest_buf_, piece_download_ctx->digest_buf(), piece_state.digest_len_))
 		{
+			piece_download_ctx->status_ = PieceDownloadContext::DOWNLOAD_STATUS_FAILED;
+
 			// Failed
 			piece_state.restarted_count_++;
 			piece_state.progress_ = 0;
 			piece_state.status_ = PieceState::STATUS_NOT_DOWNLOADED;
 		} else {
+			piece_download_ctx->status_ = PieceDownloadContext::DOWNLOAD_STATUS_SUCCESS;
+
 			piece_state.progress_ = 1.0f;
 			piece_state.status_ = PieceState::STATUS_DOWNLOADED;
 			{
