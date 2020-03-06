@@ -33,6 +33,7 @@ namespace grida {
 
 		void PieceService::init(LimitedMemoryPool* memory_pool) {
 			memory_pool_ = memory_pool;
+			started_.store(true);
 		}
 
 		void PieceService::stop() {
