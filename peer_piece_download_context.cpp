@@ -9,6 +9,15 @@
 #include "peer_piece_download_context.hpp"
 
 namespace grida {
+	
+	PeerPieceDownloadContext::~PeerPieceDownloadContext() {
+		if (status() != PieceDownloadContext::DOWNLOAD_STATUS_SUCCESS) {
+			int count = peer_info_->fail_count_inc_fetch();
+			printf("fail_count_inc_fetch : [count=%d, status=%d]\n", count, status());
+		}
+
+		peer_info_->use_count_fetch_dec();
+	}
 
 	std::shared_ptr<PeerPieceDownloadContext> PeerPieceDownloadContext::create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, DownloadContext::PeerInfo* peer_info, int max_count) {
 		int count = peer_info->use_count_fetch_inc();

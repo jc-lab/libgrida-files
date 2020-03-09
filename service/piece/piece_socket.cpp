@@ -168,16 +168,7 @@ namespace grida {
 					auto peer = handle.peer();
 
 					std::shared_ptr<PieceSocket> self = std::static_pointer_cast<PieceSocket>(handle.data());
-					std::shared_ptr<PeerPieceDownloadContext> peer_piece_download_ctx = std::dynamic_pointer_cast<PeerPieceDownloadContext>(self ? self->piece_download_ctx_ : nullptr);
-
-					if (peer_piece_download_ctx) {
-						DownloadContext::PeerInfo* peer_info = peer_piece_download_ctx->peer_info();
-						if (peer_piece_download_ctx->status() != PieceDownloadContext::DOWNLOAD_STATUS_SUCCESS) {
-							int count = peer_info->fail_count_inc_fetch();
-							printf("fail_count_inc_fetch : %s:%d: [count=%d, status=%d]\n", peer.ip.c_str(), peer.port, count, peer_piece_download_ctx->status());
-						}
-					}
-
+					
 					printf("PieceSocket closeFrom : %s:%d\n", peer.ip.c_str(), peer.port);
 
 					self->closeWithQueue();
