@@ -13,13 +13,13 @@ namespace grida {
 	PeerPieceDownloadContext::~PeerPieceDownloadContext() {
 		if (status() != PieceDownloadContext::DOWNLOAD_STATUS_SUCCESS) {
 			int count = peer_info_->fail_count_inc_fetch();
-			printf("fail_count_inc_fetch : [count=%d, status=%d]\n", count, status());
+			printf("fail_count_inc_fetch : %s [count=%d, status=%d]\n", peer_info_->remote_ip.c_str(), count, status());
 		}
 
 		peer_info_->use_count_fetch_dec();
 	}
 
-	std::shared_ptr<PeerPieceDownloadContext> PeerPieceDownloadContext::create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, DownloadContext::PeerInfo* peer_info, int max_count) {
+	std::shared_ptr<PeerPieceDownloadContext> PeerPieceDownloadContext::create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, std::shared_ptr<DownloadContext::PeerInfo> peer_info, int max_count) {
 		int count = peer_info->use_count_fetch_inc();
 		if (count >= max_count)
 		{

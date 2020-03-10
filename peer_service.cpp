@@ -202,7 +202,7 @@ namespace grida {
 						int64_t now_ticks_milli = std::chrono::time_point_cast<std::chrono::milliseconds>(now_ticks).time_since_epoch().count();
 
 						for (auto peer_iter = download_context->peers_info_.map.begin(); peer_iter != download_context->peers_info_.map.end(); ) {
-							DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
+							std::shared_ptr<DownloadContext::PeerInfo>& peer_info = peer_iter->second;
 							int64_t time_diff = (now_ticks_milli - peer_iter->second->last_valid_time.load()) / 1000LL;
 							
 							if (time_diff >= config_.peer_ttl) {
@@ -223,7 +223,6 @@ namespace grida {
 								(time_diff < config_.peer_ttl) &&
 								(peer_iter->second->get_fail_count() < 10)
 							) {
-								DownloadContext::PeerInfo* peer_info = peer_iter->second.get();
 								std::vector<DownloadContext::PieceState*> avail_list;
 								avail_list.reserve(download_context->num_of_pieces_);
 								for (int i = 0; i < download_context->pieces_.indexed.size(); i++) {

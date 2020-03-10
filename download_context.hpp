@@ -94,7 +94,7 @@ namespace grida {
 
 			std::atomic_int count_;
 
-			PeerInfo() : valided(false), fail_count_(0), count_(0) { }
+			PeerInfo() : valided(false), fail_count_(0), last_failed_at_(0), count_(0) { }
 
 			int use_count_fetch_inc()
 			{
@@ -156,11 +156,11 @@ namespace grida {
 
 		struct {
 			std::recursive_mutex mutex;
-			std::map<std::string, std::unique_ptr<PeerInfo>> map;
+			std::map<std::string, std::shared_ptr<PeerInfo>> map;
 
 			PeerInfo& get(const std::string& remote_ip) {
 				std::unique_lock<std::recursive_mutex> lock(mutex);
-				std::unique_ptr<PeerInfo>& ref = map[remote_ip];
+				std::shared_ptr<PeerInfo>& ref = map[remote_ip];
 				if(!ref) {
 					ref.reset(new PeerInfo());
 					ref->remote_ip = remote_ip;

@@ -15,21 +15,21 @@ namespace grida {
 
 	class PeerPieceDownloadContext : public PieceDownloadContext {
 	private:
-		DownloadContext::PeerInfo* peer_info_;
+		std::shared_ptr<DownloadContext::PeerInfo> peer_info_;
 	
 	private:
-		PeerPieceDownloadContext(PeerService::PieceDownloadHandler* peer_service_handler, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, DownloadContext::PeerInfo *peer_info)
+		PeerPieceDownloadContext(PeerService::PieceDownloadHandler* peer_service_handler, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, std::shared_ptr<DownloadContext::PeerInfo> peer_info)
 			: PieceDownloadContext(peer_service_handler, download_ctx, DownloadContext::DOWNLOADER_PEER, piece), peer_info_(peer_info)
 		{
 		}
 
 	public:
-		static std::shared_ptr<PeerPieceDownloadContext> create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, DownloadContext::PeerInfo* peer_info, int max_count);
+		static std::shared_ptr<PeerPieceDownloadContext> create(PeerService::PieceDownloadHandler* peer_service_handler, uvw::Loop* loop, std::shared_ptr<DownloadContext> download_ctx, DownloadContext::PieceState* piece, std::shared_ptr<DownloadContext::PeerInfo> peer_info, int max_count);
 
 		virtual ~PeerPieceDownloadContext();
 
 		DownloadContext::PeerInfo* peer_info() {
-			return peer_info_;
+			return peer_info_.get();
 		}
 	};
 

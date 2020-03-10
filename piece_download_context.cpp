@@ -29,9 +29,13 @@ namespace grida {
 		piece_ = piece;
 		object_id_ = download_ctx->object_id();
 		piece_id_ = piece->piece_id();
-		piece_size_ = download_ctx->piece_size();
+		if ((download_ctx->seed_file()->pieces.get().size() - 1) == piece->piece_index()) {
+			piece_size_ = download_ctx->seed_file()->file_size.get() % download_ctx->piece_size();
+		} else {
+			piece_size_ = download_ctx->piece_size();
+		}
 		file_handle_ = download_ctx->file_handle();
-		file_offset_ = (int64_t)piece_size_ * (int64_t)piece->piece_index();
+		file_offset_ = (int64_t)download_ctx->piece_size() * (int64_t)piece->piece_index();
 
 		md_ = jcp::MessageDigest::getInstance(jcp::MessageDigestAlgorithm::SHA_256.algo_id());
 	}
@@ -117,7 +121,7 @@ namespace grida {
 
 		if (avail_len != len) {
 			// Some problem
-			printf("**ERR[PieceDownloadContext::appendData]\n\n");
+			printf("**ERR[PieceDownloadContext::appendData]: piece_size=%d, written=%d, remaining(%llu) < len(%u)\n", piece_size_, written_bytes_, remaining, len);
 		}
 
 		{
@@ -138,7 +142,7 @@ namespace grida {
 		if (written_bytes_ != piece_size_)
 		{
 			// Error
-			printf("written_bytes_ != piece_size_\n");
+			printf("written_bytes_(%u) != piece_size_(%u)\n", written_bytes_, piece_size_);
 		}
 		md_->digest(digest_buf_);
 		digest_len_ = md_->digest_size();

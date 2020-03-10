@@ -22,19 +22,24 @@ namespace grida {
 
     namespace service {
 
-		McdService::TspLayer::TspLayer(Impl* impl)
-			: impl_(impl)
+		McdService::TspLayer::TspLayer()
 		{
+		}
+
+		void McdService::TspLayer::init(std::shared_ptr<Impl> impl)
+		{
+			impl_ = impl;
 		}
 		
 		std::shared_ptr<McdService::Impl> McdService::Impl::create(PeerContext* peer_context, const internal::LoopProvider* loop_provider) {
 			std::shared_ptr<Impl> instance(new Impl(peer_context, loop_provider));
 			instance->self_ = instance;
+			instance->transport_.init(instance);
 			return instance;
 		}
 
         McdService::Impl::Impl(PeerContext *peer_context, const internal::LoopProvider* loop_provider) :
-        peer_context_(peer_context), loop_provider_(loop_provider), transport_(this)
+        peer_context_(peer_context), loop_provider_(loop_provider)
         {
             transport_.setEndpayloadType(protocol_mcd_.get_sp_type());
             transport_.addProtocol(&protocol_mcd_);
@@ -293,7 +298,11 @@ namespace grida {
 		}
 
         int McdService::TspLayer::onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload) {
-            return impl_->onRecvEndPayload(ancestors, payload);
+			std::shared_ptr<Impl> impl(impl_.lock());
+			if (impl) {
+				return impl->onRecvEndPayload(ancestors, payload);
+			}
+			return 0;
         }
 
     } // namespace service

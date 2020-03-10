@@ -24,17 +24,20 @@
 namespace grida {
     namespace service {
 
+		class Impl;
+
 		class McdService::TspLayer : public tsp::TspMultiStream
 		{
 		private:
-			Impl* impl_;
+			std::weak_ptr<Impl> impl_;
 
 		public:
 			std::shared_ptr<uvw::UDPHandle> send_socket_;
 			std::shared_ptr<uvw::UDPHandle> recv_socket_;
 			std::string multicast_addr_;
 
-			TspLayer(Impl* impl);
+			TspLayer();
+			void init(std::shared_ptr<Impl> impl);
 			void openSender(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr);
 			void openReceiver(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr, int local_port);
 			int open(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr = "");
