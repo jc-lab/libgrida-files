@@ -206,6 +206,8 @@ namespace grida {
 									std::shared_ptr<PieceSocket> self(weak_self);
 									// handle is keep reference
 									self->uploadPiece();
+									h.stop();
+									h.close();
 								});
 								next_timer->start(uvw::TimerHandle::Time{ diff_time / 1000 }, uvw::TimerHandle::Time{ 0 });
 							} else {
