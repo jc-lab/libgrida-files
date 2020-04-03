@@ -12,7 +12,6 @@
 
 namespace grida {
 	namespace service {
-
 		const struct lws_protocols RdvClientWs::ws_protocols[1] = {
 			{
 				"default",
@@ -30,6 +29,12 @@ namespace grida {
 		RdvClientWs::~RdvClientWs()
 		{
 
+		}
+		
+		std::shared_ptr<RdvClientWs> RdvClientWs::create() {
+			std::shared_ptr<RdvClientWs> instance(new RdvClientWs());
+			instance->self_ = instance;
+			return instance;
 		}
 
 		int RdvClientWs::MyClient::onConnected(stomp::Frame* frame) {
@@ -149,13 +154,18 @@ namespace grida {
 			return lws_callback_http_dummy(wsi, reason, user, in, len);
 
 		TRY_CONNECT:
-			lwsl_user("TRY_CONNECT\n");
-			if (connect_client(ctx))
-				return lws_timed_callback_vh_protocol(lws_get_vhost(wsi),
-					lws_get_protocol(wsi),
-					LWS_CALLBACK_USER + 1, 1);
-			else
-				return 0;
+			do {
+				lwsl_user("TRY_CONNECT\n");
+				struct lws* lws = connect_client(ctx);
+				volatile void* tenmp = lws_get_vhost(wsi);
+				if (!lws)
+				{
+					return lws_timed_callback_vh_protocol(lws_get_vhost(wsi),
+						lws_get_protocol(wsi),
+						LWS_CALLBACK_USER + 1, 1);
+				}
+			} while (0);
+			return 0;
 		}
 
 		int RdvClientWs::callback_protocol(struct lws* wsi, enum lws_callback_reasons reason,
@@ -166,7 +176,7 @@ namespace grida {
 			return pthis->protocol_handler(wsi, reason, user, in, len);
 		}
 
-		int RdvClientWs::connect_client(struct lws_context* context)
+		struct lws* RdvClientWs::connect_client(struct lws_context* context)
 		{
 			struct lws_client_connect_info i;
 			memset(&i, 0, sizeof(i));
@@ -180,27 +190,43 @@ namespace grida {
 			i.protocol = "default";
 			i.local_protocol_name = "default";
 			i.pwsi = &ws_client_wsi;
-
-			return !lws_client_connect_via_info(&i);
+			return lws_client_connect_via_info(&i);
 		}
 
-		int RdvClientWs::start(uv_loop_t* loop)
+		int RdvClientWs::start(std::shared_ptr<NativeLoop> loop)
 		{
-			lws_context_creation_info info = {0};
-			info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_LIBUV;
-			info.port = CONTEXT_PORT_NO_LISTEN;
-			info.protocols = ws_protocols;
-			//info.client_ssl_ca_filepath = 0;
-			info.user = this;
-			foreign_loops[0] = loop;
-			info.foreign_loops = foreign_loops;
-			info.count_threads = 1;
-			ws_context = lws_create_context(&info);
+			loop_ = loop;
+			std::shared_ptr<NativeLoop::AsyncHandle> task = loop->resource<NativeLoop::AsyncHandle>();
+			task->on([this](auto& evt, NativeLoop::AsyncHandle& handle) -> void {
+				lws_context_creation_info info = { 0 };
+				info.options = LWS_SERVER_OPTION_LIBUV;
+				info.port = CONTEXT_PORT_NO_LISTEN;
+				info.protocols = ws_protocols;
+				//info.client_ssl_ca_filepath = 0;
+				info.user = this;
+				foreign_loops[0] = handle.loop()->getLoop();
+				info.foreign_loops = foreign_loops;
+				info.count_threads = 1;
+				ws_context = lws_create_context(&info);
+			});
+			task->send();
 			return 0;
 		}
 
 		int RdvClientWs::stop()
 		{
+			std::shared_ptr<NativeLoop> loop;
+			std::shared_ptr<RdvClientWs> self(self_.lock());
+			loop_.swap(loop);
+			if (loop) {
+				std::shared_ptr<NativeLoop::AsyncHandle> task = loop->resource<NativeLoop::AsyncHandle>();
+				task->on([self](auto& evt, NativeLoop::AsyncHandle& handle) -> void {
+					if (self->ws_context) {
+						lws_context_destroy(self->ws_context);
+					}
+				});
+				task->send();
+			}
 			return 0;
 		}
 

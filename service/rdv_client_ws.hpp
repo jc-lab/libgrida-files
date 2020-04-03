@@ -22,6 +22,8 @@
 #include <assert.h>
 #endif
 
+#include "../native_loop.hpp"
+
 namespace grida {
 	namespace service {
 
@@ -69,6 +71,9 @@ namespace grida {
 		private:
 			class MyClient;
 
+			std::shared_ptr<NativeLoop> loop_;
+			std::weak_ptr<RdvClientWs> self_;
+
 			typedef struct ws_pss_wrapper {
 				int inited;
 				std::shared_ptr<MyClient>* obj;
@@ -91,7 +96,7 @@ namespace grida {
 			std::mutex session_lock_;
 			std::shared_ptr<MyClient> stomp_client_;
 
-			int connect_client(struct lws_context* context);
+			struct lws* connect_client(struct lws_context* context);
 			static int callback_protocol(struct lws* wsi, enum lws_callback_reasons reason, void* user, void* in, size_t len);
 			int protocol_handler(struct lws* wsi, enum lws_callback_reasons reason, void* user, void* in, size_t len);
 
@@ -99,11 +104,14 @@ namespace grida {
 			RdvClientWs(const RdvClientWs& o) { assert(false); }
 #endif
 
-		public:
 			RdvClientWs();
-			~RdvClientWs();
 
-			int start(uv_loop_t *loop);
+		public:
+			~RdvClientWs();
+			
+			static std::shared_ptr<RdvClientWs> create();
+
+			int start(std::shared_ptr<NativeLoop> loop);
 			int stop();
 		};
 

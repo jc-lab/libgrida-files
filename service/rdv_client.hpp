@@ -11,6 +11,7 @@
 
 #include "../internal/use_loop.hpp"
 #include "../peer_context.hpp"
+#include "../native_loop.hpp"
 
 namespace grida {
 	namespace service {
@@ -26,7 +27,7 @@ namespace grida {
 			std::unique_ptr<Impl> impl_;
 
 		public:
-			RdvClient(const internal::LoopProvider* provider, PeerContext* peer_context);
+			RdvClient(const internal::LoopProvider* provider, std::shared_ptr<NativeLoop> native_loop, PeerContext* peer_context);
 			~RdvClient();
 
 			int start(RouteTracer* route_tracer);

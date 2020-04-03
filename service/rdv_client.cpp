@@ -50,17 +50,18 @@ namespace grida {
 			};
 
 			std::shared_ptr<::uvw::Loop> loop_;
+			std::shared_ptr<NativeLoop> native_loop_;
 			PeerContext* peer_context_;
 
-			std::unique_ptr<RdvClientWs> ws_;
+			std::shared_ptr<RdvClientWs> ws_;
 			RouteTracer* route_tracer_;
 
 			std::shared_ptr<::uvw::TimerHandle> route_trace_timer_;
 
 			std::unordered_set< std::unique_ptr<ObjectWrapper> > managed_objects_;
 
-			Impl(RdvClient *parent, PeerContext *peer_context)
-				: route_tracer_(NULL), loop_(parent->loop_), peer_context_(peer_context)
+			Impl(RdvClient *parent, std::shared_ptr<NativeLoop> native_loop, PeerContext *peer_context)
+				: route_tracer_(NULL), loop_(parent->loop_), native_loop_(native_loop), peer_context_(peer_context)
 			{
 			}
 
@@ -75,11 +76,11 @@ namespace grida {
 				if (ws_.get()) {
 					ws_->stop();
 				}
-				ws_.reset(new RdvClientWs());
+				ws_ = RdvClientWs::create();
 
 				route_tracer_ = route_tracer;
 
-				rc = ws_->start(loop_->raw());
+				rc = ws_->start(native_loop_);
 				if (rc)
 					return rc;
 
@@ -113,8 +114,8 @@ namespace grida {
 			}
 		};
 
-		RdvClient::RdvClient(const internal::LoopProvider* provider, PeerContext* peer_context)
-			: LoopUse(provider), impl_(new Impl(this, peer_context))
+		RdvClient::RdvClient(const internal::LoopProvider* provider, std::shared_ptr<NativeLoop> native_loop, PeerContext* peer_context)
+			: LoopUse(provider), impl_(new Impl(this, native_loop, peer_context))
 		{
 		}
 

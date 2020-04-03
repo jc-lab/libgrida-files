@@ -18,6 +18,7 @@
 #include "shared_file_handle.hpp"
 
 #include "internal/use_loop.hpp"
+#include "native_loop.hpp"
 #include "peer_context.hpp"
 
 #include "download_context.hpp"
@@ -91,6 +92,7 @@ namespace grida {
 		std::shared_ptr<Logger> logger_;
 
 		std::shared_ptr<::uvw::Loop> loop_;
+		std::shared_ptr<NativeLoop> thirdparty_loop_;
 
 		ThreadPool thread_pool_;
 
