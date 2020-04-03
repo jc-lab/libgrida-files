@@ -30,6 +30,7 @@ namespace grida {
 		{
 		private:
 			std::weak_ptr<Impl> impl_;
+			std::shared_ptr<uvw::Loop> loop_;
 
 		public:
 			std::shared_ptr<uvw::UDPHandle> send_socket_;
@@ -41,6 +42,7 @@ namespace grida {
 			void openSender(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr);
 			void openReceiver(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr, int local_port);
 			int open(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr = "");
+			void close();
 			int sendPacket(std::unique_ptr<char[]> packet_data, int packet_len);
 			int local_port() const;
 			int onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload) override;
@@ -109,7 +111,7 @@ namespace grida {
 			static std::shared_ptr<Impl> create(PeerContext* peer_context, const internal::LoopProvider* loop_provider);
 
             ~Impl();
-            int start(ThreadPool* thread_pool, const std::string& multicast_ip, const std::string& interface_ip);
+            int start(std::shared_ptr<ThreadPool> thread_pool, const std::string& multicast_ip, const std::string& interface_ip);
             int stop();
             int onRecvEndPayload(const std::vector<std::unique_ptr<tsp::Payload>>& ancestors, std::unique_ptr<tsp::Payload>& payload);
 			int sendMcdPayload(mcd::McdPayload* payload, tsp::PskeFlags pske_flags, const std::vector<std::unique_ptr<grida::tsp::Payload>>* ancestors = NULL);

@@ -118,11 +118,14 @@ namespace grida {
 		stop();
 	}
 
+	
+
 	int PeerService::start(const Config& config)
 	{
 		config_ = config;
 
 		thirdparty_loop_ = NativeLoop::create();
+		thread_pool_.reset(new ThreadPool());
 
 		route_tracer_.reset(new service::RouteTracer(this));
 		mcd_service_.reset(new service::McdService(this, config.peer_context));
@@ -130,10 +133,12 @@ namespace grida {
 		piece_service_->init(config.memory_pool);
 		piece_service_->listen(19901);
 		
+		/*
 		if (config.use_rdv) {
-			rdv_client_.reset(new service::RdvClient(this, config.peer_context));
+			rdv_client_.reset(new service::RdvClient(this, thirdparty_loop_, config.peer_context));
 			rdv_client_->start(route_tracer_.get());
 		}
+		*/
 		
 		mcd_service_->start(thread_pool(), config.multicast_addr, config.interface_addr);
 
@@ -142,7 +147,7 @@ namespace grida {
 		manage_thread_run_.store(true);
 		manage_thread_ = std::thread(std::bind(&PeerService::downloadManageThreadProc, this));
 
-		thread_pool_.start(1);
+		thread_pool_->start(1);
 
 		return 0;
 	}
@@ -153,7 +158,7 @@ namespace grida {
 		if (piece_service_) {
 			piece_service_->stop();
 		}
-		thread_pool_.stop();
+		thread_pool_->stop();
 		if (manage_thread_.joinable()) {
 			manage_thread_.join();
 		}

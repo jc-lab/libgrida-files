@@ -50,7 +50,7 @@ namespace grida {
 
         }
 
-        int McdService::Impl::start(ThreadPool *thread_pool, const std::string& multicast_ip, const std::string& interface_ip) {
+        int McdService::Impl::start(std::shared_ptr<ThreadPool> thread_pool, const std::string& multicast_ip, const std::string& interface_ip) {
 			std::weak_ptr<Impl> weak_self(self_);
 
 			std::shared_ptr<uvw::Loop> loop(loop_provider_->get_loop());
@@ -62,7 +62,7 @@ namespace grida {
             });
 
             transport_.open(loop.get(), multicast_ip, interface_ip);
-            transport_.start(thread_pool);
+            transport_.start(thread_pool.get());
 
 			discovery_timer_ = loop->resource<uvw::TimerHandle>();
 			discovery_timer_->on<uvw::TimerEvent>([weak_self, thread_pool](const uvw::TimerEvent& evt, uvw::TimerHandle& handle) {
@@ -92,19 +92,24 @@ namespace grida {
 
 			self_.reset();
 
-			if (discovery_timer_) {
-				std::shared_ptr<uvw::AsyncHandle> loop_task = loop->resource<uvw::AsyncHandle>();
-				std::shared_ptr<uvw::TimerHandle> discovery_timer(discovery_timer_);
-				discovery_timer_.reset();
+			std::shared_ptr<uvw::AsyncHandle> loop_task = loop->resource<uvw::AsyncHandle>();
+			do {
+				std::shared_ptr<uvw::TimerHandle> discovery_timer;
+				discovery_timer_.swap(discovery_timer);
+
 				loop_task->once<uvw::AsyncEvent>([discovery_timer](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
-					if (discovery_timer->active()) {
-						discovery_timer->stop();
+					if (discovery_timer) {
+						if (discovery_timer->active()) {
+							discovery_timer->stop();
+						}
+						discovery_timer->close();
 					}
-					discovery_timer->close();
 					task_handle.close();
 				});
 				loop_task->send();
-			}
+			} while (0);
+
+			transport_.close();
 
             return 0;
         }
@@ -271,21 +276,55 @@ namespace grida {
         }
 
         int McdService::TspLayer::open(::uvw::Loop* loop, const std::string& multicast_addr, const std::string& interface_addr) {
-            multicast_addr_ = multicast_addr;
+			loop_ = loop->shared_from_this();
+			multicast_addr_ = multicast_addr;
             openSender(loop, multicast_addr, interface_addr);
             openReceiver(loop, multicast_addr, interface_addr, send_socket_->sock().port);
             return 1;
         }
 
+		void McdService::TspLayer::close() {
+			std::shared_ptr<uvw::Loop> loop;
+			loop_.swap(loop);
+
+			std::shared_ptr<uvw::AsyncHandle> loop_task = loop->resource<uvw::AsyncHandle>();
+			do {
+				std::shared_ptr<uvw::UDPHandle> send_socket;
+				std::shared_ptr<uvw::UDPHandle> recv_socket;
+				send_socket_.swap(send_socket);
+				recv_socket_.swap(recv_socket);
+				loop_task->once<uvw::AsyncEvent>([send_socket, recv_socket](const uvw::AsyncEvent& task_evt, uvw::AsyncHandle& task_handle) {
+					if (send_socket) {
+						send_socket->close();
+					}
+					if (recv_socket) {
+						recv_socket->stop();
+						recv_socket->close();
+					}
+					task_handle.close();
+				});
+				loop_task->send();
+			} while (0);
+		}
+
         int McdService::TspLayer::local_port() const {
-            return send_socket_->sock().port;
+			if (send_socket_) {
+				return send_socket_->sock().port;
+			}
+			return 0;
         }
 
 		int McdService::TspLayer::sendPacket(std::unique_ptr<char[]> packet_data, int packet_len) {
+			if (!send_socket_) {
+				return -1;
+			}
+
 			std::shared_ptr<uvw::AsyncHandle> task = send_socket_->loop().resource<uvw::AsyncHandle>();
 
 			auto runnable = ThreadPool::taskSharedBind([this](std::unique_ptr<char[]> packet_data, int packet_len) {
-				send_socket_->send(multicast_addr_, 19800, std::move(packet_data), packet_len);
+				if (send_socket_) {
+					send_socket_->send(multicast_addr_, 19800, std::move(packet_data), packet_len);
+				}
 			}, std::move(packet_data), packet_len);
 
 			task->once<uvw::AsyncEvent>([runnable](const uvw::AsyncEvent& evt, uvw::AsyncHandle& handle) {

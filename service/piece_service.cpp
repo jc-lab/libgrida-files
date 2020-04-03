@@ -55,7 +55,7 @@ namespace grida {
 				std::shared_ptr<PieceService> self(weak_self.lock());
 				if (self && self->started_.load()) {
 					std::shared_ptr<uvw::TCPHandle> client = handle.loop().resource<uvw::TCPHandle>();
-					std::shared_ptr<piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, self->peer_service_->get_loop(), self->peer_service_->thread_pool()));
+					std::shared_ptr<piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, self->peer_service_->get_loop(), self->peer_service_->thread_pool().get()));
 
 					handle.accept(*client);
 					if (piece_socket->acceptFrom(client))
@@ -76,7 +76,7 @@ namespace grida {
 			std::shared_ptr<PieceService> self(self_.lock());
 			const DownloadContext::PeerInfo* peer_info = piece_download_ctx->peer_info();
 
-			std::shared_ptr< piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, peer_service_->get_loop(), peer_service_->thread_pool()));
+			std::shared_ptr< piece::PieceSocket> piece_socket(piece::PieceSocket::create(self, peer_service_->get_loop(), peer_service_->thread_pool().get()));
 
 			piece_socket->connectTo(peer_info->remote_ip, 19901, piece_download_ctx);
 

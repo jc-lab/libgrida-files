@@ -218,7 +218,7 @@ namespace grida {
 						}
 					});
 					upload_begin_time_ = std::chrono::steady_clock::now();
-					handle->write((char*)pack->raw(), pack->size());
+					handle->write((char*)pack->raw(), read_bytes);
 				} else {
 					handle->close();
 				}

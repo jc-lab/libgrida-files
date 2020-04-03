@@ -23,7 +23,7 @@ namespace grida {
 
 		}
 
-		int McdService::start(ThreadPool* thread_pool, const std::string& multicast_addr, const std::string& interface_addr)
+		int McdService::start(std::shared_ptr<ThreadPool> thread_pool, const std::string& multicast_addr, const std::string& interface_addr)
 		{
 			return impl_->start(thread_pool, multicast_addr, interface_addr);
 		}

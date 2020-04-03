@@ -94,7 +94,7 @@ namespace grida {
 		std::shared_ptr<::uvw::Loop> loop_;
 		std::shared_ptr<NativeLoop> thirdparty_loop_;
 
-		ThreadPool thread_pool_;
+		std::shared_ptr<ThreadPool> thread_pool_;
 
 		std::thread manage_thread_;
 		std::atomic_bool manage_thread_run_;
@@ -149,8 +149,8 @@ namespace grida {
 			return loop_;
 		}
 
-		ThreadPool* thread_pool() {
-			return &thread_pool_;
+		std::shared_ptr<ThreadPool> thread_pool() {
+			return thread_pool_;
 		}
 
 		int start(const Config &config);
