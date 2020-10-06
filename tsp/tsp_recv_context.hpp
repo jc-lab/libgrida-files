@@ -2,6 +2,7 @@
 #define __GRIDA_TSP_TSP_RECV_CONTEXT_HPP__
 
 #include <vector>
+#include <string>
 
 namespace grida {
 
